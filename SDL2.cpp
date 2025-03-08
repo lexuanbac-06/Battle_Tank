@@ -74,28 +74,33 @@ struct Bullet {
     SDL_Rect rect;
     Direction direction;
     bool active;
+    double angle; // Góc xoay
 
     Bullet(int startX, int startY, Direction dir) {
         direction = dir;
         speed = 8;
         active = true;
 
-        //vị trí đạn xuất phát hợp với nòng súng
+        // Xác định góc xoay và vị trí viên đạn xuất phát chính giữa xe tăng
         switch (direction) {
         case UP:
-            x = startX + 15;
-            y = startY + 5;  
+            angle = 0;
+            x = startX + 14;  // Chính giữa xe
+            y = startY;        // Cao hơn một chút
             break;
         case DOWN:
+            angle = 180;
             x = startX + 15;
-            y = startY + 25;
+            y = startY + 30;
             break;
         case LEFT:
-            x = startX + 5; 
+            angle = 270;
+            x = startX;        // Lùi sang trái một chút
             y = startY + 15;
             break;
         case RIGHT:
-            x = startX + 25; 
+            angle = 90;
+            x = startX + 30;   // Tiến sang phải một chút
             y = startY + 15;
             break;
         }
@@ -116,11 +121,13 @@ struct Bullet {
         rect.x = x;
         rect.y = y;
 
+        // Kiểm tra ra ngoài màn hình
         if (x < 0 || x > 800 || y < 0 || y > SCREEN_HEIGHT) {
             active = false;
             return;
         }
 
+        // Kiểm tra va chạm với tường
         for (auto& wall : walls) {
             if (SDL_HasIntersection(&rect, &wall.rect)) {
                 active = false;
@@ -129,8 +136,8 @@ struct Bullet {
         }
     }
 
-    void render() {
-        SDL_RenderCopy(renderer, bulletTexture, NULL, &rect);
+    void render(SDL_Renderer* renderer, SDL_Texture* bulletTexture) {
+        SDL_RenderCopyEx(renderer, bulletTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
     }
 };
 
@@ -219,7 +226,7 @@ struct Tank {
 
     void render() {
         SDL_RenderCopyEx(renderer, tankTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
-        for (auto& bullet : bullets) bullet.render();
+        for (auto& bullet : bullets) bullet.render(renderer, bulletTexture);
     }
 };
 Tank playerTank(800 / 2, SCREEN_HEIGHT - 60);
@@ -251,12 +258,10 @@ struct EnemyTank {
     void update(std::vector<Wall>& walls, Tank& player, std::vector<EnemyTank>& enemies) {
         Uint32 currentTime = SDL_GetTicks();
 
-        // 🚀 Thay đổi hướng đi nếu hết thời gian di chuyển
         if (currentTime - lastChangeTime >= changeInterval) {
             int dx = player.x - x;
             int dy = player.y - y;
 
-            // Ưu tiên di chuyển theo trục có khoảng cách lớn hơn
             if (abs(dx) > abs(dy)) {
                 direction = (dx > 0) ? RIGHT : LEFT;
             }
@@ -266,7 +271,7 @@ struct EnemyTank {
 
             angle = getAngleFromDirection(direction);
             lastChangeTime = currentTime;
-            changeInterval = 1000 + rand() % 1500;  // Thời gian thay đổi ngẫu nhiên
+            changeInterval = 1000 + rand() % 1500;
         }
 
         if (alive) {
@@ -280,7 +285,6 @@ struct EnemyTank {
 
             SDL_Rect newRect = { newX, newY, 40, 40 };
 
-            // 🚧 Kiểm tra va chạm với biên bản đồ
             if (newX < 0 || newX + 40 > 800 || newY < 0 || newY + 40 > 600) {
                 direction = getNewDirection(direction);
                 angle = getAngleFromDirection(direction);
@@ -288,7 +292,6 @@ struct EnemyTank {
             else {
                 bool collided = false;
 
-                // 🚧 Kiểm tra va chạm với tường
                 for (auto& wall : walls) {
                     if (SDL_HasIntersection(&newRect, &wall.rect)) {
                         direction = getNewDirection(direction);
@@ -298,7 +301,6 @@ struct EnemyTank {
                     }
                 }
 
-                // 🏎️ Kiểm tra va chạm với xe tăng khác
                 for (auto& enemy : enemies) {
                     if (&enemy != this && SDL_HasIntersection(&newRect, &enemy.rect)) {
                         direction = getNewDirection(direction);
@@ -307,13 +309,13 @@ struct EnemyTank {
                         break;
                     }
                 }
-                // 🚗💥 Kiểm tra va chạm với xe chính
+
                 if (SDL_HasIntersection(&newRect, &player.rect)) {
                     direction = getNewDirection(direction);
                     angle = getAngleFromDirection(direction);
                     collided = true;
                 }
-                // Nếu không va chạm, di chuyển xe
+
                 if (!collided) {
                     x = newX;
                     y = newY;
@@ -322,31 +324,48 @@ struct EnemyTank {
                 }
             }
 
-            // 🔫 Địch bắn ngẫu nhiên
             if (rand() % 70 == 0) {
                 bullets.emplace_back(x, y, direction);
             }
         }
 
-        // 🔄 Cập nhật và xóa đạn không còn hoạt động
         for (auto& bullet : bullets) bullet.update(walls);
-        bullets.erase(remove_if(bullets.begin(), bullets.end(), [](Bullet& b) { return !b.active; }), bullets.end());
+
+        // 🚀 **Kiểm tra va chạm giữa đạn của EnemyTank và Tank**
+        for (auto& enemyBullet : bullets) {
+            if (!enemyBullet.active) continue;
+
+            for (auto& playerBullet : player.bullets) {
+                if (!playerBullet.active) continue;
+
+                if (SDL_HasIntersection(&enemyBullet.rect, &playerBullet.rect)) {
+                    enemyBullet.active = false;
+                    playerBullet.active = false;
+                }
+            }
+        }
+
+        // 🗑️ **Xóa các viên đạn không còn hoạt động**
+        bullets.erase(std::remove_if(bullets.begin(), bullets.end(),
+            [](const Bullet& b) { return !b.active; }), bullets.end());
+
+        player.bullets.erase(std::remove_if(player.bullets.begin(), player.bullets.end(),
+            [](const Bullet& b) { return !b.active; }), player.bullets.end());
 
         for (auto& bullet : bullets) {
-            if (bullet.active && SDL_HasIntersection(&bullet.rect, &playerTank.rect)) {
-                playerTank.lives--;
-                bullet.active = false; // Vô hiệu hóa viên đạn sau khi va chạm
+            if (bullet.active && SDL_HasIntersection(&bullet.rect, &player.rect)) {
+                player.lives--;
+                bullet.active = false;
 
-                Mix_PlayChannel(-1, hitSound, 0); // Phát âm thanh trúng đạn nếu có
+                Mix_PlayChannel(-1, hitSound, 0);
 
-                if (playerTank.lives <= 0) {
-                    gameOver = 1; // Kết thúc trò chơi nếu hết mạng
+                if (player.lives <= 0) {
+                    gameOver = 1;
                     return;
                 }
             }
         }
 
-        // 🚀 Kiểm tra va chạm với đạn của người chơi
         for (auto& bullet : player.bullets) {
             if (SDL_HasIntersection(&rect, &bullet.rect) && bullet.active) {
                 alive = false;
@@ -358,7 +377,6 @@ struct EnemyTank {
         }
     }
 
-    // 🎯 Hàm chọn hướng mới, tránh hướng cũ
     Direction getNewDirection(Direction oldDirection) {
         Direction newDir;
         do {
@@ -367,7 +385,6 @@ struct EnemyTank {
         return newDir;
     }
 
-    // 🎯 Hàm chuyển đổi Direction thành góc quay
     double getAngleFromDirection(Direction dir) {
         switch (dir) {
         case UP: return 0;
@@ -382,7 +399,7 @@ struct EnemyTank {
         if (alive) {
             SDL_RenderCopyEx(renderer, enemyTankTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
         }
-        for (auto& bullet : bullets) bullet.render();
+        for (auto& bullet : bullets) bullet.render(renderer, bulletTexture);
     }
 };
 
@@ -488,7 +505,7 @@ bool loadGameTextures() {
     tankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank1 (2).png");
     enemyTankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank2 (2).png");
     wallTexture = loadTexture("C:\\Users\\ACER\\Downloads\\wall_pixel.png");
-    bulletTexture = loadTexture("C:\\Users\\ACER\\Downloads\\bullet2.png");
+    bulletTexture = loadTexture("C:\\Users\\ACER\\Downloads\\bullet_pixel.png");
     backgroundTexture2=loadTexture("C:\\Users\\ACER\\Downloads\\nen_nau.jpg");
     background_multitasking = IMG_LoadTexture(renderer,"C:\\Users\\ACER\\Downloads\\nen_da_nhiem.png");
     pauseButtonTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\pause_pixel.png");

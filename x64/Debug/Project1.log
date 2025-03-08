@@ -1,8 +1,8 @@
 ﻿  SDL2.cpp
-C:\VClib\Project1\Project1\SDL2.cpp(455,16): warning C4566: character represented by universal-character-name '\u1ED7' cannot be represented in the current code page (1252)
-C:\VClib\Project1\Project1\SDL2.cpp(455,16): warning C4566: character represented by universal-character-name '\u1EDF' cannot be represented in the current code page (1252)
-C:\VClib\Project1\Project1\SDL2.cpp(455,16): warning C4566: character represented by universal-character-name '\u1EA1' cannot be represented in the current code page (1252)
-C:\VClib\Project1\Project1\SDL2.cpp(456,16): warning C4305: 'return': truncation from 'int' to 'bool'
-C:\VClib\Project1\Project1\SDL2.cpp(502,16): warning C4305: 'return': truncation from 'int' to 'bool'
-C:\VClib\Project1\Project1\SDL2.cpp(669,15): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
+C:\VClib\Project1\Project1\SDL2.cpp(472,16): warning C4566: character represented by universal-character-name '\u1ED7' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(472,16): warning C4566: character represented by universal-character-name '\u1EDF' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(472,16): warning C4566: character represented by universal-character-name '\u1EA1' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(473,16): warning C4305: 'return': truncation from 'int' to 'bool'
+C:\VClib\Project1\Project1\SDL2.cpp(519,16): warning C4305: 'return': truncation from 'int' to 'bool'
+C:\VClib\Project1\Project1\SDL2.cpp(686,15): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
   Project1.vcxproj -> C:\VClib\Project1\x64\Debug\Project1.exe
