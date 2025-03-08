@@ -487,14 +487,14 @@ bool initSDL() {
 bool loadGameTextures() {
     tankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank1 (2).png");
     enemyTankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank2 (2).png");
-    wallTexture = loadTexture("C:\\Users\\ACER\\Downloads\\wall_pixel3.png");
+    wallTexture = loadTexture("C:\\Users\\ACER\\Downloads\\wall_pixel.png");
     bulletTexture = loadTexture("C:\\Users\\ACER\\Downloads\\bullet2.png");
     backgroundTexture2=loadTexture("C:\\Users\\ACER\\Downloads\\nen_nau.jpg");
     background_multitasking = IMG_LoadTexture(renderer,"C:\\Users\\ACER\\Downloads\\nen_da_nhiem.png");
     pauseButtonTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\pause_pixel.png");
-    lives1 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\1.png");
-    lives2 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\2.png");
-    lives3 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\3.png");
+    lives1 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\1live.png");
+    lives2 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\2lives.png");
+    lives3 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\3lives.png");
     font2 = TTF_OpenFont("C:\\VClib\\TCVN3-ABC-fonts\\VHCENTN.TTF", 40);
     font3 = TTF_OpenFont("C:\\Users\\ACER\\Downloads\\font-chu-pixel\\Pixel Sans Serif.ttf", 15);
     if (!font2) {
