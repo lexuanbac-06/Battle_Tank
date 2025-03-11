@@ -9,14 +9,15 @@
 #include<string>
 #include<algorithm>
 #undef main  
-
+using namespace std;
 int score = 0;
-int maxScore = 0; 
+int maxScore = 0;
 const int SCREEN_WIDTH = 1000;
 const int SCREEN_HEIGHT = 600;
 SDL_Texture* tankTexture = nullptr;
 SDL_Texture* enemyTankTexture = nullptr;
 SDL_Texture* wallTexture = nullptr;
+SDL_Texture* wall2Texture = nullptr;
 SDL_Texture* bulletTexture = nullptr;
 SDL_Texture* backgroundTexture2 = nullptr;
 SDL_Texture* backgroundTexture = nullptr;
@@ -35,10 +36,11 @@ bool isPaused = false;
 bool running = true;
 bool gameOver = 0;
 bool inMenu = true;
+
 SDL_Window* window = nullptr;
 SDL_Renderer* renderer = nullptr;
 enum Direction { UP, DOWN, LEFT, RIGHT };
-int mapOffsetY = 0; // Độ dời của map theo trục Y
+
 struct Wall {
     SDL_Rect rect;
     Wall(int x, int y, int w, int h) { rect = { x, y, w, h }; }
@@ -46,29 +48,24 @@ struct Wall {
         SDL_RenderCopy(renderer, wallTexture, NULL, &rect);
     }
 };
-std::vector<Wall> walls = {
-{100, 100, 40, 40}, {140, 100, 40, 40}, {180, 100, 40, 40}, // 150x40 -> 3 ô
+vector<Wall> walls = {
+    {100, 100, 40, 40}, {140, 100, 40, 40}, {180, 100, 40, 40}, // 150x40 -> 3 ô
 {300, 50, 40, 40}, {300, 90, 40, 40}, {300, 130, 40, 40}, {300, 170, 40, 40}, {300, 210, 40, 40}, // 40x200 -> 5 ô
 {500, 200, 40, 40}, {540, 200, 40, 40}, {580, 200, 40, 40}, {620, 200, 40, 40}, {660, 200, 40, 40}, // 200x40 -> 5 ô
 {50, 300, 40, 40}, {90, 300, 40, 40}, {130, 300, 40, 40}, // 120x40 -> 3 ô
 {250, 400, 40, 40}, {290, 400, 40, 40}, {330, 400, 40, 40}, {370, 400, 40, 40}, // 160x40 -> 4 ô
 {450, 100, 40, 40}, {450, 140, 40, 40}, {450, 180, 40, 40}, {450, 220, 40, 40}, // 40x160 -> 4 ô
 {600, 300, 40, 40}, {600, 340, 40, 40}, {600, 380, 40, 40}, {600, 420, 40, 40}, {600, 460, 40, 40}, // 40x200 -> 5 ô
-{720, 500, 40, 40}, {760, 500, 40, 40}, // 100x40 -> 4 ô
+{700, 500, 40, 40}, {740, 500, 40, 40}, {780, 500, 40, 40}, {820, 500, 40, 40}, // 100x40 -> 4 ô
 {150, 500, 40, 40}, {190, 500, 40, 40}, {230, 500, 40, 40}, {270, 500, 40, 40}, {310, 500, 40, 40}, // 200x40 -> 5 ô
-{350, 250, 40, 40}, {390, 250, 40, 40}, {430, 250, 40, 40}, // 120x40 -> 3 ô
+{370, 250, 40, 40}, {410, 250, 40, 40}, {450, 250, 40, 40}, // 120x40 -> 3 ô
 {550, 400, 40, 40}, {590, 400, 40, 40}, {630, 400, 40, 40}, {670, 400, 40, 40}, // 160x40 -> 4 ô
 {100, 550, 40, 40}, {100, 590, 40, 40}, {100, 630, 40, 40}, // 40x100 -> 3 ô
 {500, 550, 40, 40}, {540, 550, 40, 40}, {580, 550, 40, 40}, {620, 550, 40, 40}, {660, 550, 40, 40}, // 200x40 -> 5 ô
 {650, 50, 40, 40}, {690, 50, 40, 40}, {730, 50, 40, 40}, // 120x40 -> 3 ô
 {750, 150, 40, 40}, {750, 190, 40, 40}, {750, 230, 40, 40}, // 40x120 -> 3 ô
+ 
 };
-std::vector<std::vector<Wall>> wallPatterns = {
-    { {100, 100, 40, 40}, {140, 100, 40, 40}, {180, 100, 40, 40} }, // Mẫu 0
-    { {300, 50, 40, 40}, {300, 90, 40, 40}, {300, 130, 40, 40}, {300, 170, 40, 40} }, // Mẫu 1
-    { {500, 200, 40, 40}, {540, 200, 40, 40}, {580, 200, 40, 40}, {620, 200, 40, 40} } // Mẫu 2
-};
-
 struct Bullet {
     int x, y, speed;
     SDL_Rect rect;
@@ -140,6 +137,63 @@ struct Bullet {
         SDL_RenderCopyEx(renderer, bulletTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
     }
 };
+
+struct Wall2 {
+    int x, y;
+    SDL_Rect rect;
+    bool destroyed;
+
+    Wall2(int startX, int startY) {
+        x = startX;
+        y = startY;
+        rect = { x, y, 20, 20 };
+        destroyed = false;
+    }
+
+    void render() {
+        if (!destroyed) {
+            SDL_RenderCopy(renderer, wall2Texture, NULL, &rect);
+        }
+    }
+    void checkBulletCollision(std::vector<Bullet>& bullets, std::vector<Wall2>& breakableWalls) {
+        for (auto& bullet : bullets) {
+            if (!bullet.active) continue;
+
+            // Duyệt từng tường trong danh sách
+            for (auto it = breakableWalls.begin(); it != breakableWalls.end(); ++it) {
+                if (SDL_HasIntersection(&it->rect, &bullet.rect)) {
+                    bullet.active = false; // Đạn biến mất
+
+                    // Xóa tường khỏi danh sách
+                    breakableWalls.erase(it);
+                    return; // Dừng vòng lặp vì iterator bị thay đổi
+                }
+            }
+        }
+    }
+};
+vector<Wall2> wall2s;
+void init_wall2() {
+    int x = 400, y = 300;
+    int size = 20; // Kích thước mỗi ô tường
+
+    // Lớp 1 (sát ô 40x40)
+    for (int i = -1; i <= 2; i++) {
+        wall2s.emplace_back(x + i * size, y - size); // Hàng trên
+        wall2s.emplace_back(x + i * size, y + size * 2); // Hàng dưới
+        wall2s.emplace_back(x - size, y + i * size); // Cột trái
+        wall2s.emplace_back(x + size * 2, y + i * size); // Cột phải
+    }
+
+    // Lớp 2 (ngoài lớp 1)
+    for (int i = -2; i <= 3; i++) {
+        wall2s.emplace_back(x + i * size, y - size * 2); // Hàng trên
+        wall2s.emplace_back(x + i * size, y + size * 3); // Hàng dưới
+        wall2s.emplace_back(x - size * 2, y + i * size); // Cột trái
+        wall2s.emplace_back(x + size * 3, y + i * size); // Cột phải
+    }
+}
+
 
 struct Tank {
     int x, y, speed, lives = 3;
@@ -257,10 +311,10 @@ struct EnemyTank {
 
     void update(std::vector<Wall>& walls, Tank& player, std::vector<EnemyTank>& enemies) {
         Uint32 currentTime = SDL_GetTicks();
-
+        //Tim duong di den xe chinh
         if (currentTime - lastChangeTime >= changeInterval) {
-            int dx = player.x - x;
-            int dy = player.y - y;
+            int dx = 400 - x;
+            int dy = 300 - y;
 
             if (abs(dx) > abs(dy)) {
                 direction = (dx > 0) ? RIGHT : LEFT;
@@ -283,7 +337,7 @@ struct EnemyTank {
             case RIGHT: newX += speed; break;
             }
 
-            SDL_Rect newRect = { newX, newY, 40, 40 };
+            SDL_Rect newRect = { newX + 5, newY + 5, 28,28 };
 
             if (newX < 0 || newX + 40 > 800 || newY < 0 || newY + 40 > 600) {
                 direction = getNewDirection(direction);
@@ -291,7 +345,7 @@ struct EnemyTank {
             }
             else {
                 bool collided = false;
-
+                //kiem tra va cham voi tuong
                 for (auto& wall : walls) {
                     if (SDL_HasIntersection(&newRect, &wall.rect)) {
                         direction = getNewDirection(direction);
@@ -300,7 +354,17 @@ struct EnemyTank {
                         break;
                     }
                 }
+                for (auto& wall : wall2s) {
+                    if (SDL_HasIntersection(&newRect, &wall.rect)) {
+                        direction = getNewDirection(direction);
+                        angle = getAngleFromDirection(direction);
+                        collided = true;
+                        break;
+                    }
+                }
+                SDL_Rect newRect = { newX , newY , 40,40 };
 
+                //Kiem tra va cham voi enemies khac
                 for (auto& enemy : enemies) {
                     if (&enemy != this && SDL_HasIntersection(&newRect, &enemy.rect)) {
                         direction = getNewDirection(direction);
@@ -309,7 +373,7 @@ struct EnemyTank {
                         break;
                     }
                 }
-
+                //kiem tra va cham voi tank
                 if (SDL_HasIntersection(&newRect, &player.rect)) {
                     direction = getNewDirection(direction);
                     angle = getAngleFromDirection(direction);
@@ -330,7 +394,8 @@ struct EnemyTank {
         }
 
         for (auto& bullet : bullets) bullet.update(walls);
-
+        //kiểm tra va chạm giữa đạn và tường 2;
+        for (Wall2& wall2 : wall2s) wall2.checkBulletCollision(bullets, wall2s);
         // 🚀 **Kiểm tra va chạm giữa đạn của EnemyTank và Tank**
         for (auto& enemyBullet : bullets) {
             if (!enemyBullet.active) continue;
@@ -351,7 +416,7 @@ struct EnemyTank {
 
         player.bullets.erase(std::remove_if(player.bullets.begin(), player.bullets.end(),
             [](const Bullet& b) { return !b.active; }), player.bullets.end());
-
+        //kiểm tra đạn va chạm với tank
         for (auto& bullet : bullets) {
             if (bullet.active && SDL_HasIntersection(&bullet.rect, &player.rect)) {
                 player.lives--;
@@ -375,6 +440,7 @@ struct EnemyTank {
                 return;
             }
         }
+        
     }
 
     Direction getNewDirection(Direction oldDirection) {
@@ -407,7 +473,7 @@ std::vector<EnemyTank> enemies = {
      {100, 100}, {300, 150}, {50, 100}, {250, 70}, {600, 100}, {200, 450}
 };
 
-void Tank:: update(std::vector<Wall>& walls) {
+void Tank::update(std::vector<Wall>& walls) {
     int newX = x, newY = y;
 
     // Xử lý di chuyển liên tục
@@ -417,20 +483,26 @@ void Tank:: update(std::vector<Wall>& walls) {
     if (keys[3]) newX += speed; // RIGHT
 
     // Giữ trong màn hình
-    if (newX < 0) newX = 0;
-    if (newX > 800 - 40) newX = 800 - 40;
-    if (newY < 0) newY = 0;
-    if (newY > 600 - 40) newY = 600 - 40;
+    newX = std::max(0, std::min(800 - 40, newX));
+    newY = std::max(0, std::min(600 - 40, newY));
 
-    // Kiểm tra va chạm với tường
+    // Tạo hitbox mới
     SDL_Rect newRect = { newX, newY, 40, 40 };
+
+    // 🚧 Kiểm tra va chạm với tường (Wall và Wall2)
     for (auto& wall : walls) {
         if (SDL_HasIntersection(&newRect, &wall.rect)) return;
     }
+    for (auto& wall : wall2s) {
+        if (SDL_HasIntersection(&newRect, &wall.rect)) return;
+    }
+
     // 🚗💥 Kiểm tra va chạm với xe địch
     for (auto& enemy : enemies) {
-        if (SDL_HasIntersection(&newRect, &enemy.rect)) return; // Không di chuyển nếu chạm xe địch
+        if (SDL_HasIntersection(&newRect, &enemy.rect)) return;
     }
+    //kiem tra va cham dan va tuong 2
+    for (Wall2& wall2 : wall2s) wall2.checkBulletCollision(bullets, wall2s);
     // Cập nhật vị trí
     x = newX;
     y = newY;
@@ -505,19 +577,17 @@ bool loadGameTextures() {
     tankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank1 (2).png");
     enemyTankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank2 (2).png");
     wallTexture = loadTexture("C:\\Users\\ACER\\Downloads\\wall_pixel.png");
+    wall2Texture = loadTexture("C:\\Users\\ACER\\Downloads\\wall2_pixel.png");
     bulletTexture = loadTexture("C:\\Users\\ACER\\Downloads\\bullet_pixel.png");
-    backgroundTexture2=loadTexture("C:\\Users\\ACER\\Downloads\\nen_nau.jpg");
-    background_multitasking = IMG_LoadTexture(renderer,"C:\\Users\\ACER\\Downloads\\nen_da_nhiem.png");
+    backgroundTexture2 = loadTexture("C:\\Users\\ACER\\Downloads\\nen_nau.jpg");
+    background_multitasking = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\nen_da_nhiem.png");
     pauseButtonTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\pause_pixel.png");
     lives1 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\1live.png");
     lives2 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\2lives.png");
     lives3 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\3lives.png");
     font2 = TTF_OpenFont("C:\\VClib\\TCVN3-ABC-fonts\\VHCENTN.TTF", 40);
     font3 = TTF_OpenFont("C:\\Users\\ACER\\Downloads\\font-chu-pixel\\Pixel Sans Serif.ttf", 15);
-    if (!font2) {
-        std::cerr << "Failed to load font! SDL_ttf Error: " << TTF_GetError() << std::endl;
-        return -1;
-    }
+    
 
     return tankTexture && enemyTankTexture && wallTexture && bulletTexture;
 }
@@ -682,35 +752,18 @@ void update_live() {
         break;
     }
 }
+
 int main() {
     srand(time(0));
     if (!initSDL()) return -1;
     int max_score = 0;
     loadBackground();//gọi nền menu chính
     loadGameTextures();
-    std::vector<Wall> walls = {
-{100, 100, 40, 40}, {140, 100, 40, 40}, {180, 100, 40, 40}, // 150x40 -> 3 ô
-{300, 50, 40, 40}, {300, 90, 40, 40}, {300, 130, 40, 40}, {300, 170, 40, 40}, {300, 210, 40, 40}, // 40x200 -> 5 ô
-{500, 200, 40, 40}, {540, 200, 40, 40}, {580, 200, 40, 40}, {620, 200, 40, 40}, {660, 200, 40, 40}, // 200x40 -> 5 ô
-{50, 300, 40, 40}, {90, 300, 40, 40}, {130, 300, 40, 40}, // 120x40 -> 3 ô
-{250, 400, 40, 40}, {290, 400, 40, 40}, {330, 400, 40, 40}, {370, 400, 40, 40}, // 160x40 -> 4 ô
-{450, 100, 40, 40}, {450, 140, 40, 40}, {450, 180, 40, 40}, {450, 220, 40, 40}, // 40x160 -> 4 ô
-{600, 300, 40, 40}, {600, 340, 40, 40}, {600, 380, 40, 40}, {600, 420, 40, 40}, {600, 460, 40, 40}, // 40x200 -> 5 ô
-{720, 500, 40, 40}, {760, 500, 40, 40}, // 100x40 -> 4 ô
-{150, 500, 40, 40}, {190, 500, 40, 40}, {230, 500, 40, 40}, {270, 500, 40, 40}, {310, 500, 40, 40}, // 200x40 -> 5 ô
-{350, 250, 40, 40}, {390, 250, 40, 40}, {430, 250, 40, 40}, // 120x40 -> 3 ô
-{550, 400, 40, 40}, {590, 400, 40, 40}, {630, 400, 40, 40}, {670, 400, 40, 40}, // 160x40 -> 4 ô
-{100, 550, 40, 40}, {100, 590, 40, 40}, {100, 630, 40, 40}, // 40x100 -> 3 ô
-{500, 550, 40, 40}, {540, 550, 40, 40}, {580, 550, 40, 40}, {620, 550, 40, 40}, {660, 550, 40, 40}, // 200x40 -> 5 ô
-{650, 50, 40, 40}, {690, 50, 40, 40}, {730, 50, 40, 40}, // 120x40 -> 3 ô
-{750, 150, 40, 40}, {750, 190, 40, 40}, {750, 230, 40, 40}, // 40x120 -> 3 ô
-    };
-
+    init_wall2();
     while (running) {
         SDL_RenderCopy(renderer, backgroundTexture2, NULL, NULL);
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-
             auto it = enemies.begin();
             //xóa xe địch đã chết
             while (it != enemies.end()) {
@@ -742,7 +795,7 @@ int main() {
                         }
                     }
                 }
-            }      
+            }
             if (gameOver) {
                 if (e.type == SDL_KEYDOWN) {
                     if (e.key.keysym.sym == SDLK_r) {  // Restart game
@@ -794,13 +847,15 @@ int main() {
             SDL_Delay(100);
             continue;
         }
+        //scrollMap(walls, maps,playerTank, enemies);
         playerTank.update(walls);
         for (auto& enemy : enemies) enemy.update(walls, playerTank, enemies);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, backgroundTexture2, NULL, NULL);//hiển thị bgr
-       
+
         for (auto& wall : walls) wall.render();
+        for (auto& wall : wall2s) wall.render();
         playerTank.render();
         for (auto& enemy : enemies) enemy.render();
         SDL_RenderCopy(renderer, background_multitasking, NULL, &multitaskingRect);
