@@ -23,6 +23,7 @@ SDL_Texture* backgroundTexture2 = nullptr;
 SDL_Texture* backgroundTexture = nullptr;
 SDL_Texture* pauseButtonTexture = nullptr;
 SDL_Texture* background_multitasking = nullptr;
+SDL_Texture* bossTexture = nullptr;
 SDL_Texture* lives1 = nullptr;
 SDL_Texture* lives2 = nullptr;
 SDL_Texture* lives3 = nullptr;
@@ -194,6 +195,35 @@ void init_wall2() {
     }
 }
 
+struct Boss {
+    int x, y;
+    SDL_Rect rect;
+    bool alive = true;
+
+    Boss(int _x, int _y) : x(_x), y(_y) {
+        rect = { x, y, 40, 40 }; // Boss có kích thước 40x40
+    }
+
+    // Kiểm tra va chạm với đạn
+    void checkBulletCollision(std::vector<Bullet>& bullets) {
+        for (auto& bullet : bullets) {
+            if (bullet.active && SDL_HasIntersection(&rect, &bullet.rect)) { // Sửa lỗi boss.rect
+                alive = false; // Boss chết
+                bullet.active = false; // Xóa đạn
+                gameOver = 1; // Game over
+            }
+        }
+    }
+
+    // Render boss
+    void render() {
+        if (alive) {
+            SDL_RenderCopy(renderer, bossTexture, NULL, &rect);
+        }
+    }
+};
+
+Boss boss(400, 300);
 
 struct Tank {
     int x, y, speed, lives = 3;
@@ -396,6 +426,8 @@ struct EnemyTank {
         for (auto& bullet : bullets) bullet.update(walls);
         //kiểm tra va chạm giữa đạn và tường 2;
         for (Wall2& wall2 : wall2s) wall2.checkBulletCollision(bullets, wall2s);
+        //kiem tra bắn trúng boss
+        boss.checkBulletCollision(bullets);
         // 🚀 **Kiểm tra va chạm giữa đạn của EnemyTank và Tank**
         for (auto& enemyBullet : bullets) {
             if (!enemyBullet.active) continue;
@@ -483,32 +515,40 @@ void Tank::update(std::vector<Wall>& walls) {
     if (keys[3]) newX += speed; // RIGHT
 
     // Giữ trong màn hình
-    newX = std::max(0, std::min(800 - 40, newX));
-    newY = std::max(0, std::min(600 - 40, newY));
-
-    // Tạo hitbox mới
-    SDL_Rect newRect = { newX, newY, 40, 40 };
-
-    // 🚧 Kiểm tra va chạm với tường (Wall và Wall2)
-    for (auto& wall : walls) {
-        if (SDL_HasIntersection(&newRect, &wall.rect)) return;
-    }
-    for (auto& wall : wall2s) {
-        if (SDL_HasIntersection(&newRect, &wall.rect)) return;
-    }
-
-    // 🚗💥 Kiểm tra va chạm với xe địch
-    for (auto& enemy : enemies) {
-        if (SDL_HasIntersection(&newRect, &enemy.rect)) return;
-    }
+    if (newX < 0) newX = 0;
+    if (newX > 800 - 40) newX = 800 - 40;
+    if (newY < 0) newY = 0;
+    if (newY > 600 - 40) newY = 600 - 40;
+    bool canMove = true;
+    SDL_Rect newRect = { newX, newY, 40,40 };
     //kiem tra va cham dan va tuong 2
     for (Wall2& wall2 : wall2s) wall2.checkBulletCollision(bullets, wall2s);
-    // Cập nhật vị trí
-    x = newX;
-    y = newY;
-    rect.x = x;
-    rect.y = y;
-
+    //kiểm tra đạn trúng boss
+    boss.checkBulletCollision(bullets);
+    
+    // 🚗💥 Kiểm tra va chạm với xe địch
+    for (auto& enemy : enemies) {
+        if (SDL_HasIntersection(&newRect, &enemy.rect)) return; // Không di chuyển nếu chạm xe địch
+    }
+    newRect = { newX + 5, newY + 5, 28,28 };
+    for (auto& wall : walls) {
+        if (SDL_HasIntersection(&newRect, &wall.rect)) {
+            canMove = false;
+            break;
+        }
+    }
+    for (auto& wall : wall2s) {
+        if (SDL_HasIntersection(&newRect, &wall.rect)) {
+            canMove = false;
+            break;
+        }
+    }
+    if (canMove) {
+        x = newX;
+        y = newY;
+        rect.x = x;
+        rect.y = y;
+    }
     // Cập nhật đạn
     for (auto& bullet : bullets) bullet.update(walls);
     bullets.erase(remove_if(bullets.begin(), bullets.end(), [](Bullet& b) { return !b.active; }), bullets.end());
@@ -582,6 +622,7 @@ bool loadGameTextures() {
     backgroundTexture2 = loadTexture("C:\\Users\\ACER\\Downloads\\nen_nau.jpg");
     background_multitasking = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\nen_da_nhiem.png");
     pauseButtonTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\pause_pixel.png");
+    bossTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\main.png");
     lives1 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\1live.png");
     lives2 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\2lives.png");
     lives3 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\3lives.png");
@@ -705,6 +746,9 @@ void reset(Tank& playerTank, std::vector<EnemyTank>& enemies) {
     score = 0;
     playerTank.lives = 3;
     enemies = { {100, 100}, {300, 150}, {50, 100}, {250, 70}, {600, 100}, {200, 450} };
+    boss.alive = 1;
+    wall2s.clear();
+    init_wall2();
 }
 void quit() {
     SDL_DestroyRenderer(renderer);
@@ -847,7 +891,7 @@ int main() {
             SDL_Delay(100);
             continue;
         }
-        //scrollMap(walls, maps,playerTank, enemies);
+
         playerTank.update(walls);
         for (auto& enemy : enemies) enemy.update(walls, playerTank, enemies);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -857,10 +901,12 @@ int main() {
         for (auto& wall : walls) wall.render();
         for (auto& wall : wall2s) wall.render();
         playerTank.render();
+        
         for (auto& enemy : enemies) enemy.render();
         SDL_RenderCopy(renderer, background_multitasking, NULL, &multitaskingRect);
         SDL_RenderCopy(renderer, background_multitasking, NULL, &multitaskingRect);
-        SDL_RenderCopy(renderer, pauseButtonTexture, NULL, &pauseButtonRect);// hiển thị nút pause
+        SDL_RenderCopy(renderer, pauseButtonTexture, NULL, &pauseButtonRect);// hiển thị nút paus
+        boss.render();
         update_live();
         renderScore();
         rendermaxScore();
