@@ -8,12 +8,14 @@
 #include<SDL_mixer.h>
 #include<string>
 #include<algorithm>
+#include <queue>
+#include <map>
 #undef main  
 using namespace std;
 int score = 0;
 int maxScore = 0;
 const int SCREEN_WIDTH = 1000;
-const int SCREEN_HEIGHT = 600;
+const int SCREEN_HEIGHT = 800;
 SDL_Texture* tankTexture = nullptr;
 SDL_Texture* enemyTankTexture = nullptr;
 SDL_Texture* wallTexture = nullptr;
@@ -31,7 +33,7 @@ SDL_Texture* lives3 = nullptr;
 TTF_Font* font2 = nullptr;
 TTF_Font* font3 = nullptr;
 SDL_Rect pauseButtonRect = { 850, 30, 80, 80 }; // Kích thước và vị trí nút pause
-SDL_Rect multitaskingRect = { 800, 0, 200, 600 };// Kích thước và vị trí phần đa nhiệm 
+SDL_Rect multitaskingRect = { 800, 0, 200, 800 };// Kích thước và vị trí phần đa nhiệm 
 SDL_Rect Live = { 820, 100, 150, 300 };// Kích thước và vị trí phần mạng
 bool isPaused = false;
 bool running = true;
@@ -44,29 +46,42 @@ enum Direction { UP, DOWN, LEFT, RIGHT };
 
 struct Wall {
     SDL_Rect rect;
-    Wall(int x, int y, int w, int h) { rect = { x, y, w, h }; }
+    Wall(int x, int y) { rect = { x, y, 40, 40 }; }
     void render() {
         SDL_RenderCopy(renderer, wallTexture, NULL, &rect);
     }
 };
 vector<Wall> walls = {
-    {100, 100, 40, 40}, {140, 100, 40, 40}, {180, 100, 40, 40}, // 150x40 -> 3 ô
-{300, 50, 40, 40}, {300, 90, 40, 40}, {300, 130, 40, 40}, {300, 170, 40, 40}, {300, 210, 40, 40}, // 40x200 -> 5 ô
-{500, 200, 40, 40}, {540, 200, 40, 40}, {580, 200, 40, 40}, {620, 200, 40, 40}, {660, 200, 40, 40}, // 200x40 -> 5 ô
-{50, 300, 40, 40}, {90, 300, 40, 40}, {130, 300, 40, 40}, // 120x40 -> 3 ô
-{250, 400, 40, 40}, {290, 400, 40, 40}, {330, 400, 40, 40}, {370, 400, 40, 40}, // 160x40 -> 4 ô
-{450, 100, 40, 40}, {450, 140, 40, 40}, {450, 180, 40, 40}, {450, 220, 40, 40}, // 40x160 -> 4 ô
-{600, 300, 40, 40}, {600, 340, 40, 40}, {600, 380, 40, 40}, {600, 420, 40, 40}, {600, 460, 40, 40}, // 40x200 -> 5 ô
-{700, 500, 40, 40}, {740, 500, 40, 40}, {780, 500, 40, 40}, {820, 500, 40, 40}, // 100x40 -> 4 ô
-{150, 500, 40, 40}, {190, 500, 40, 40}, {230, 500, 40, 40}, {270, 500, 40, 40}, {310, 500, 40, 40}, // 200x40 -> 5 ô
-{370, 250, 40, 40}, {410, 250, 40, 40}, {450, 250, 40, 40}, // 120x40 -> 3 ô
-{550, 400, 40, 40}, {590, 400, 40, 40}, {630, 400, 40, 40}, {670, 400, 40, 40}, // 160x40 -> 4 ô
-{100, 550, 40, 40}, {100, 590, 40, 40}, {100, 630, 40, 40}, // 40x100 -> 3 ô
-{500, 550, 40, 40}, {540, 550, 40, 40}, {580, 550, 40, 40}, {620, 550, 40, 40}, {660, 550, 40, 40}, // 200x40 -> 5 ô
-{650, 50, 40, 40}, {690, 50, 40, 40}, {730, 50, 40, 40}, // 120x40 -> 3 ô
-{750, 150, 40, 40}, {750, 190, 40, 40}, {750, 230, 40, 40}, // 40x120 -> 3 ô
- 
+    {0,160}, {40,160},
+    {120,0}, {120,40},
+    {120, 160}, {120,240}, {120,200},
+    {240,240},{200,240}, {40,360},{40,400}, {240,200},{240,160},{240,120},{240,80},{240,40},
+    {40,240}, {80,320},{160,320},{160,360},{160,400},{240,320},
+    {240,360},{240,400},{320,120},{320,160},{320,160},{320,240},{360,160},
+    {360,240},{400,160},{400,240},
+    {360,40},{400,40}
+
 };
+void mirrorWalls() {
+    vector<Wall> mirroredWalls = walls; // Sao chép danh sách gốc
+
+    for (const Wall& wall : walls) {
+        int x = wall.rect.x;
+        int y = wall.rect.y;
+
+        // Đối xứng qua trục dọc
+        mirroredWalls.emplace_back(800 - x - 40, y);
+
+        // Đối xứng qua trục ngang
+        mirroredWalls.emplace_back(x, 800 - y - 40);
+
+        // Đối xứng qua gốc (400,400)
+        mirroredWalls.emplace_back(800 - x - 40, 800 - y - 40);
+    }
+
+    walls = mirroredWalls; // Cập nhật lại danh sách tường
+}
+
 struct Bullet {
     int x, y, speed;
     SDL_Rect rect;
@@ -175,7 +190,7 @@ struct Wall2 {
 };
 vector<Wall2> wall2s;
 void init_wall2() {
-    int x = 400, y = 300;
+    int x = 380, y = 380;
     int size = 20; // Kích thước mỗi ô tường
 
     // Lớp 1 (sát ô 40x40)
@@ -193,7 +208,24 @@ void init_wall2() {
         wall2s.emplace_back(x - size * 2, y + i * size); // Cột trái
         wall2s.emplace_back(x + size * 3, y + i * size); // Cột phải
     }
+    vector<pair<int, int>> positions = {
+        {200, 320}, {200, 440}, {560, 320}, {560, 440},
+        {320, 200}, {440, 200}, {320, 560}, {440, 560}
+    };
+
+    size = 20; // Kích thước của wall2
+
+    for (size_t i = 0; i < positions.size(); i++) {
+        int x = positions[i].first;
+        int y = positions[i].second;
+
+        wall2s.emplace_back(x, y);
+        wall2s.emplace_back(x + size, y);
+        wall2s.emplace_back(x, y + size);
+        wall2s.emplace_back(x + size, y + size);
+    }
 }
+
 
 struct Boss {
     int x, y;
@@ -223,7 +255,7 @@ struct Boss {
     }
 };
 
-Boss boss(400, 300);
+Boss boss(380, 380);
 
 struct Tank {
     int x, y, speed, lives = 3;
@@ -260,7 +292,18 @@ struct Tank {
         fireSound = nullptr;
         moveSound = nullptr;
     }
+    Uint32 lastShotTime = 0;
+    const Uint32 shotCooldown = 500; // 0.5 giây
 
+    void shoot() {
+        Uint32 currentTime = SDL_GetTicks();
+
+        if (currentTime - lastShotTime >= shotCooldown) {
+            bullets.emplace_back(x, y, direction);
+            lastShotTime = currentTime; // Cập nhật thời gian bắn
+            if (fireSound) Mix_PlayChannel(-1, fireSound, 0);
+        }
+    }
     void handleEvent(SDL_Event& e) {
         if (e.type == SDL_KEYDOWN && e.key.repeat == 0) { // Nhấn phím
             switch (e.key.keysym.sym) {
@@ -281,8 +324,7 @@ struct Tank {
                 Mix_PlayChannel(-1, moveSound, 0);
                 break;
             case SDLK_SPACE:
-                bullets.emplace_back(x, y, direction);
-                if (fireSound) Mix_PlayChannel(-1, fireSound, 0);
+                shoot();
                 break;
             }
         }
@@ -341,10 +383,10 @@ struct EnemyTank {
 
     void update(std::vector<Wall>& walls, Tank& player, std::vector<EnemyTank>& enemies) {
         Uint32 currentTime = SDL_GetTicks();
-        //Tim duong di den xe chinh
+        //Tim duong di den bosss
         if (currentTime - lastChangeTime >= changeInterval) {
-            int dx = 400 - x;
-            int dy = 300 - y;
+            int dx = 380 - x;
+            int dy = 380 - y;
 
             if (abs(dx) > abs(dy)) {
                 direction = (dx > 0) ? RIGHT : LEFT;
@@ -369,7 +411,7 @@ struct EnemyTank {
 
             SDL_Rect newRect = { newX + 5, newY + 5, 28,28 };
 
-            if (newX < 0 || newX + 40 > 800 || newY < 0 || newY + 40 > 600) {
+            if (newX < 0 || newX + 40 > 800 || newY < 0 || newY + 40 > 800) {
                 direction = getNewDirection(direction);
                 angle = getAngleFromDirection(direction);
             }
@@ -386,11 +428,20 @@ struct EnemyTank {
                 }
                 for (auto& wall : wall2s) {
                     if (SDL_HasIntersection(&newRect, &wall.rect)) {
+                        bullets.emplace_back(x, y, direction);
                         direction = getNewDirection(direction);
                         angle = getAngleFromDirection(direction);
+                        
                         collided = true;
                         break;
                     }
+                }
+                
+                //kiem tra va cham voi boss
+                if (SDL_HasIntersection(&newRect, &boss.rect)) {
+                    direction = getNewDirection(direction);
+                    angle = getAngleFromDirection(direction);
+                    collided = true;
                 }
                 SDL_Rect newRect = { newX , newY , 40,40 };
 
@@ -415,6 +466,10 @@ struct EnemyTank {
                     y = newY;
                     rect.x = x;
                     rect.y = y;
+                    if ((x > 360 && x < 440) ||(y > 360 && y < 440))
+                        if (rand() % 50 == 0) {
+                            bullets.emplace_back(x, y, direction);
+                        }
                 }
             }
 
@@ -453,7 +508,8 @@ struct EnemyTank {
             if (bullet.active && SDL_HasIntersection(&bullet.rect, &player.rect)) {
                 player.lives--;
                 bullet.active = false;
-
+                player.x = 400;
+                player.y = 680;
                 Mix_PlayChannel(-1, hitSound, 0);
 
                 if (player.lives <= 0) {
@@ -518,7 +574,7 @@ void Tank::update(std::vector<Wall>& walls) {
     if (newX < 0) newX = 0;
     if (newX > 800 - 40) newX = 800 - 40;
     if (newY < 0) newY = 0;
-    if (newY > 600 - 40) newY = 600 - 40;
+    if (newY > 800 - 40) newY = 800 - 40;
     bool canMove = true;
     SDL_Rect newRect = { newX, newY, 40,40 };
     //kiem tra va cham dan va tuong 2
@@ -543,6 +599,10 @@ void Tank::update(std::vector<Wall>& walls) {
             break;
         }
     }
+    //kiem tra va cham voi boss
+    if (SDL_HasIntersection(&newRect, &boss.rect)) {
+        canMove = false;
+    }
     if (canMove) {
         x = newX;
         y = newY;
@@ -552,6 +612,53 @@ void Tank::update(std::vector<Wall>& walls) {
     // Cập nhật đạn
     for (auto& bullet : bullets) bullet.update(walls);
     bullets.erase(remove_if(bullets.begin(), bullets.end(), [](Bullet& b) { return !b.active; }), bullets.end());
+}
+
+
+Uint32 lastSpawnTime = 0;
+const Uint32 spawnInterval = 3000; // 2 giây
+
+void spawnEnemyTank() {
+    Uint32 currentTime = SDL_GetTicks();
+
+    if (currentTime - lastSpawnTime >= spawnInterval) {
+        int spawnX = rand() % 760; // Giới hạn trong màn chơi (0-760)
+        int spawnY = rand() % 760;
+
+        // Kiểm tra xem vị trí có va chạm với tường không
+        SDL_Rect spawnRect = { spawnX, spawnY, 40, 40 };
+        bool validSpawn = true;
+
+        for (auto& wall : walls) {
+            if (SDL_HasIntersection(&spawnRect, &wall.rect)) {
+                validSpawn = false;
+                break;
+            }
+        }
+        for (auto& wall : wall2s) {
+            if (SDL_HasIntersection(&spawnRect, &wall.rect)) {
+                validSpawn = false;
+                break;
+            }
+        }
+        for (auto& enemy : enemies) {
+            if (SDL_HasIntersection(&spawnRect, &enemy.rect)) {
+                validSpawn = false;
+                break;
+            }
+        }
+        // Kiểm tra có trùng với vị trí của boss không
+        if (SDL_HasIntersection(&spawnRect, &boss.rect)|| 
+            SDL_HasIntersection(&spawnRect, &playerTank.rect)) {
+            validSpawn = false;
+        }
+
+        // Nếu vị trí hợp lệ, thêm EnemyTank mới vào danh sách
+        if (validSpawn) {
+            enemies.emplace_back(spawnX, spawnY);
+            lastSpawnTime = currentTime; // Cập nhật thời gian spawn gần nhất
+        }
+    }
 }
 
 SDL_Texture* loadTexture(const char* path) {
@@ -742,10 +849,10 @@ void showPauseMenu() {
     renderText("Quit", 400, 320);
 }
 void reset(Tank& playerTank, std::vector<EnemyTank>& enemies) {
-    playerTank.reset(400, 540);
+    playerTank.reset(800 / 2, SCREEN_HEIGHT - 320);
     score = 0;
     playerTank.lives = 3;
-    enemies = { {100, 100}, {300, 150}, {50, 100}, {250, 70}, {600, 100}, {200, 450} };
+    enemies = { {100, 100}, {50, 100}, {600, 100}, };
     boss.alive = 1;
     wall2s.clear();
     init_wall2();
@@ -798,6 +905,7 @@ void update_live() {
 }
 
 int main() {
+    mirrorWalls();
     srand(time(0));
     if (!initSDL()) return -1;
     int max_score = 0;
@@ -891,7 +999,7 @@ int main() {
             SDL_Delay(100);
             continue;
         }
-
+        spawnEnemyTank();
         playerTank.update(walls);
         for (auto& enemy : enemies) enemy.update(walls, playerTank, enemies);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
