@@ -8,8 +8,7 @@
 #include<SDL_mixer.h>
 #include<string>
 #include<algorithm>
-#include <queue>
-#include <map>
+#include<fstream>
 #undef main  
 using namespace std;
 int score = 0;
@@ -961,8 +960,26 @@ void update_live() {
         break;
     }
 }
+void init_maxScore() {
+    ifstream in("maxScore.txt");
+    if (in) {
+        in >> maxScore; // Đọc điểm cao từ file nếu có
+    }
+    else {
+        maxScore = 0; // Nếu file không tồn tại, đặt maxScore = 0
+    }
+    in.close();
+}
 
+void save_maxScore() {
+    ofstream out("maxScore.txt");
+    if (out) {
+        out << maxScore; // Ghi điểm cao vào file
+    }
+    out.close();
+}
 int main() {
+    init_maxScore();
     mirrorWalls();
     srand(time(0));
     if (!initSDL()) return -1;
@@ -1085,5 +1102,6 @@ int main() {
         SDL_RenderPresent(renderer);
         SDL_Delay(16);
     }
+    save_maxScore();
     quit();
 }
