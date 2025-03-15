@@ -44,6 +44,42 @@ SDL_Window* window = nullptr;
 SDL_Renderer* renderer = nullptr;
 enum Direction { UP, DOWN, LEFT, RIGHT };
 
+struct Explosion {
+    int x, y;
+    int frame;
+    bool active;
+    Uint32 lastFrameTime;
+    static constexpr int frameDelay = 100; // 100ms mỗi frame
+    static constexpr int totalFrames = 5;  // Tổng số frame hiệu ứng nổ
+
+
+    Explosion(int _x, int _y) : x(_x), y(_y), frame(0), active(true) {
+        lastFrameTime = SDL_GetTicks();
+    }
+
+    void update() {
+        if (!active) return;
+        Uint32 currentTime = SDL_GetTicks();
+        if (currentTime - lastFrameTime >= frameDelay) {
+            lastFrameTime = currentTime;
+            frame++;
+            if (frame >= totalFrames) {
+                active = false; // Kết thúc hiệu ứng nổ
+            }
+        }
+    }
+
+    void render(SDL_Renderer* renderer, SDL_Texture* explosionTextures[]) {
+        if (active && frame < totalFrames) {
+            SDL_Rect dstRect = { x, y, 30, 30 };
+            SDL_RenderCopy(renderer, explosionTextures[frame], NULL, &dstRect);
+        }
+    }
+};
+
+std::vector<Explosion> explosions;
+SDL_Texture* explosionTextures[5]; // Chứa 5 ảnh hiệu ứng nổ
+
 struct Wall {
     SDL_Rect rect;
     Wall(int x, int y) { rect = { x, y, 40, 40 }; }
@@ -121,33 +157,7 @@ struct Bullet {
         rect = { x, y, 10, 10 };
     }
 
-    void update(std::vector<Wall>& walls) {
-        if (!active) return;
-
-        switch (direction) {
-        case UP: y -= speed; break;
-        case DOWN: y += speed; break;
-        case LEFT: x -= speed; break;
-        case RIGHT: x += speed; break;
-        }
-
-        rect.x = x;
-        rect.y = y;
-
-        // Kiểm tra ra ngoài màn hình
-        if (x < 0 || x > 800 || y < 0 || y > SCREEN_HEIGHT) {
-            active = false;
-            return;
-        }
-
-        // Kiểm tra va chạm với tường
-        for (auto& wall : walls) {
-            if (SDL_HasIntersection(&rect, &wall.rect)) {
-                active = false;
-                return;
-            }
-        }
-    }
+    void update(std::vector<Wall>& walls);
 
     void render(SDL_Renderer* renderer, SDL_Texture* bulletTexture) {
         SDL_RenderCopyEx(renderer, bulletTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
@@ -158,6 +168,7 @@ struct Wall2 {
     int x, y;
     SDL_Rect rect;
     bool destroyed;
+    Mix_Chunk* warning = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\warning.wav");      // Âm thanh nổ
 
     Wall2(int startX, int startY) {
         x = startX;
@@ -178,8 +189,13 @@ struct Wall2 {
             // Duyệt từng tường trong danh sách
             for (auto it = breakableWalls.begin(); it != breakableWalls.end(); ++it) {
                 if (SDL_HasIntersection(&it->rect, &bullet.rect)) {
+                    if (it->rect.x>280&&it->rect.x<520) {
+                        Mix_PlayChannel(-1, warning, 0);
+                    }
+                    int explosionX = bullet.rect.x + bullet.rect.w / 2 - 15; // 20 là nửa kích thước vụ nổ (40x40)
+                    int explosionY = bullet.rect.y + bullet.rect.h / 2 - 15;
+                    explosions.emplace_back(explosionX, explosionY);
                     bullet.active = false; // Đạn biến mất
-
                     // Xóa tường khỏi danh sách
                     breakableWalls.erase(it);
                     return; // Dừng vòng lặp vì iterator bị thay đổi
@@ -226,6 +242,40 @@ void init_wall2() {
     }
 }
 
+void Bullet::update(std::vector<Wall>& walls) {
+    if (!active) return;
+
+    switch (direction) {
+    case UP: y -= speed; break;
+    case DOWN: y += speed; break;
+    case LEFT: x -= speed; break;
+    case RIGHT: x += speed; break;
+    }
+
+    rect.x = x;
+    rect.y = y;
+
+    // Kiểm tra ra ngoài màn hình
+    if (x < 0 || x > 800 || y < 0 || y > SCREEN_HEIGHT) {
+        active = false;
+        return;
+    }
+
+    // Kiểm tra va chạm với tường
+    for (auto& wall : walls) {
+        if (SDL_HasIntersection(&rect, &wall.rect)) {
+            active = false;
+
+            // Căn chỉnh vị trí vụ nổ vào chính giữa viên đạn
+            int explosionX = rect.x + rect.w / 2 - 15; // 20 là nửa kích thước vụ nổ (40x40)
+            int explosionY = rect.y + rect.h / 2 - 15;
+
+            explosions.emplace_back(explosionX, explosionY);
+            return;
+        }
+    }
+
+}
 
 struct Boss {
     int x, y;
@@ -264,7 +314,6 @@ struct Tank {
     Direction direction;
     std::vector<Bullet> bullets;
     Mix_Chunk* fireSound;
-    Mix_Chunk* moveSound; // Thêm âm thanh di chuyển
     bool keys[4] = { false, false, false, false }; // Trạng thái phím UP, DOWN, LEFT, RIGHT
 
     Tank(int startX, int startY) {
@@ -275,22 +324,15 @@ struct Tank {
         direction = UP;
         angle = 0;
 
-        fireSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\tieng_sung.wav");
+        fireSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\shoot.wav");
         if (!fireSound) {
             printf("Failed to load fire sound! SDL_mixer Error: %s\n", Mix_GetError());
-        }
-
-        moveSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\move.wav");
-        if (!moveSound) {
-            printf("Failed to load move sound! SDL_mixer Error: %s\n", Mix_GetError());
         }
     }
 
     ~Tank() {
         Mix_FreeChunk(fireSound);
-        Mix_FreeChunk(moveSound); // Giải phóng âm thanh di chuyển
         fireSound = nullptr;
-        moveSound = nullptr;
     }
     Uint32 lastShotTime = 0;
     const Uint32 shotCooldown = 500; // 0.5 giây
@@ -309,19 +351,15 @@ struct Tank {
             switch (e.key.keysym.sym) {
             case SDLK_UP:
                 keys[0] = true; direction = UP; angle = 0;
-                Mix_PlayChannel(-1, moveSound, 0); // Phát âm thanh di chuyển
                 break;
             case SDLK_DOWN:
                 keys[1] = true; direction = DOWN; angle = 180;
-                Mix_PlayChannel(-1, moveSound, 0);
                 break;
             case SDLK_LEFT:
                 keys[2] = true; direction = LEFT; angle = 270;
-                Mix_PlayChannel(-1, moveSound, 0);
                 break;
             case SDLK_RIGHT:
                 keys[3] = true; direction = RIGHT; angle = 90;
-                Mix_PlayChannel(-1, moveSound, 0);
                 break;
             case SDLK_SPACE:
                 shoot();
@@ -344,8 +382,7 @@ struct Tank {
         direction = UP;
         angle = 0;
         for (int i = 0; i < 4; i++) keys[i] = 0;
-        fireSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\tieng_sung.wav");
-        moveSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\move.wav");
+        fireSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\shoot.wav");
     }
 
     void update(std::vector<Wall>& walls);
@@ -366,8 +403,8 @@ struct EnemyTank {
     Uint32 lastShotTime;
     Uint32 lastChangeTime;
     Uint32 changeInterval;
-    Mix_Chunk* hitSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\shot.wav");
-
+    Mix_Chunk* explosionSound= Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\boom.wav");      // Âm thanh nổ
+    
     EnemyTank(int startX, int startY) {
         x = startX;
         y = startY;
@@ -493,6 +530,14 @@ struct EnemyTank {
                 if (SDL_HasIntersection(&enemyBullet.rect, &playerBullet.rect)) {
                     enemyBullet.active = false;
                     playerBullet.active = false;
+                    
+                    // Căn chỉnh vị trí vụ nổ vào chính giữa viên đạn
+                    int explosionX = (enemyBullet.rect.x + enemyBullet.rect.w / 2 +
+                        playerBullet.rect.x + playerBullet.rect.w / 2) / 2 - 20; // 20 là nửa kích thước vụ nổ
+                    int explosionY = (enemyBullet.rect.y + enemyBullet.rect.h / 2 +
+                        playerBullet.rect.y + playerBullet.rect.h / 2) / 2 - 20;
+
+                    explosions.emplace_back(explosionX, explosionY);
                 }
             }
         }
@@ -508,10 +553,15 @@ struct EnemyTank {
             if (bullet.active && SDL_HasIntersection(&bullet.rect, &player.rect)) {
                 player.lives--;
                 bullet.active = false;
+                
+                // Phát âm thanh ngay khi vụ nổ bắt đầu
+                if (explosionSound) {
+                    Mix_PlayChannel(-1, explosionSound, 0);
+                }
+                explosions.emplace_back(player.x, player.y); // Thêm hiệu ứng nổ
                 player.x = 400;
                 player.y = 680;
-                Mix_PlayChannel(-1, hitSound, 0);
-
+                
                 if (player.lives <= 0) {
                     gameOver = 1;
                     return;
@@ -521,8 +571,12 @@ struct EnemyTank {
 
         for (auto& bullet : player.bullets) {
             if (SDL_HasIntersection(&rect, &bullet.rect) && bullet.active) {
+                if (explosionSound) {
+                    Mix_PlayChannel(-1, explosionSound, 0);
+                }
                 alive = false;
                 score++;
+                explosions.emplace_back(x, y); // Hiệu ứng nổ khi EnemyTank bị bắn trúng
                 if (score > maxScore) maxScore = score;
                 bullet.active = false;
                 return;
@@ -735,7 +789,11 @@ bool loadGameTextures() {
     lives3 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\3lives.png");
     font2 = TTF_OpenFont("C:\\VClib\\TCVN3-ABC-fonts\\VHCENTN.TTF", 40);
     font3 = TTF_OpenFont("C:\\Users\\ACER\\Downloads\\font-chu-pixel\\Pixel Sans Serif.ttf", 15);
-    
+    explosionTextures[0] = loadTexture("C:\\Users\\ACER\\Downloads\\boom1.png");
+    explosionTextures[1] = loadTexture("C:\\Users\\ACER\\Downloads\\boom2.png");
+    explosionTextures[2] = loadTexture("C:\\Users\\ACER\\Downloads\\boom3.png");
+    explosionTextures[3] = loadTexture("C:\\Users\\ACER\\Downloads\\boom4.png");
+    explosionTextures[4] = loadTexture("C:\\Users\\ACER\\Downloads\\boom5.png");
 
     return tankTexture && enemyTankTexture && wallTexture && bulletTexture;
 }
@@ -1015,6 +1073,12 @@ int main() {
         SDL_RenderCopy(renderer, background_multitasking, NULL, &multitaskingRect);
         SDL_RenderCopy(renderer, pauseButtonTexture, NULL, &pauseButtonRect);// hiển thị nút paus
         boss.render();
+        for (auto& explosion : explosions) {
+            explosion.update();
+        }
+        for (auto& explosion : explosions) {
+            explosion.render(renderer, explosionTextures);
+        }
         update_live();
         renderScore();
         rendermaxScore();
