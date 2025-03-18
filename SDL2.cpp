@@ -1,745 +1,35 @@
-﻿#include <SDL.h>
-#include <vector>
-#include <cstdlib>
-#include <ctime>
-#include<SDL_ttf.h>
-#include<iostream>
-#include<SDL_image.h>
-#include<SDL_mixer.h>
+﻿#include"lib_sdl.h"
 #include<string>
-#include<algorithm>
 #include<fstream>
+#include<iostream>
+#include <vector>
+#include"init_veriable.h"
+#include"wall.h"
+#include"wall2.h"
+#include"bullet.h"
+#include"explosion.h"
+#include"warning.h"
+#include"boss.h"
+#include"enemy.h"
+#include"tank.h"
 #undef main  
-using namespace std;
-int score = 0;
-int maxScore = 0;
-int score_tmp = 0;
-bool mode_2 = 0;
-const int SCREEN_WIDTH = 1000;
-const int SCREEN_HEIGHT = 800;
-SDL_Texture* tankTexture = nullptr;
-SDL_Texture* enemyTankTexture = nullptr;
-SDL_Texture* wallTexture = nullptr;
-SDL_Texture* wall2Texture = nullptr;
-SDL_Texture* bulletTexture = nullptr;
-SDL_Texture* bulletTexture2 = nullptr;
-SDL_Texture* backgroundTexture2 = nullptr;
-SDL_Texture* backgroundTexture = nullptr;
-SDL_Texture* pauseButtonTexture = nullptr;
-SDL_Texture* background_multitasking = nullptr;
-SDL_Texture* bossTexture = nullptr;
-SDL_Texture* lives1 = nullptr;
-SDL_Texture* lives2 = nullptr;
-SDL_Texture* lives3 = nullptr;
-Uint32 cooldownStart = 0;  // Thời gian bắt đầu hồi chiêu
-const Uint32 cooldownTime = 500;  // Thời gian hồi chiêu (ms)
-TTF_Font* font = nullptr;
-TTF_Font* font2 = nullptr;
-SDL_Rect pauseButtonRect = { 850, 30, 80, 80 }; // Kích thước và vị trí nút pause
-SDL_Rect multitaskingRect = { 800, 0, 200, 800 };// Kích thước và vị trí phần đa nhiệm 
-SDL_Rect Live = { 820, 100, 150, 300 };// Kích thước và vị trí phần mạng
-SDL_Rect Live1 = { 880, 260, 90, 180 };// Kích thước và vị trí phần mạng player 1
-SDL_Rect rect_p1 = { 820, 300, 75, 75 };// hộp tank 1
-SDL_Rect rect_p2 = { 820, 500, 75, 75 };// hộp tank 2
-SDL_Rect Live2 = { 880, 460, 90, 180 };// Kích thước và vị trí phần mạng player 2
-bool isPaused = false;
-bool running = true;
-bool gameOver = 0;
-bool inMenu = true;
-bool played_soundGO = 0;
-SDL_Window* window = nullptr;
-SDL_Renderer* renderer = nullptr;
-enum Direction { UP, DOWN, LEFT, RIGHT };
-struct Explosion {
-    int x, y;
-    int frame;
-    bool active;
-    Uint32 lastFrameTime;
-    static constexpr int frameDelay = 100; // 100ms mỗi frame
-    static constexpr int totalFrames = 5;  // Tổng số frame hiệu ứng nổ
 
-
-    Explosion(int _x, int _y) : x(_x), y(_y), frame(0), active(true) {
-        lastFrameTime = SDL_GetTicks();
-    }
-
-    void update() {
-        if (!active) return;
-        Uint32 currentTime = SDL_GetTicks();
-        if (currentTime - lastFrameTime >= frameDelay) {
-            lastFrameTime = currentTime;
-            frame++;
-            if (frame >= totalFrames) {
-                active = false; // Kết thúc hiệu ứng nổ
-            }
-        }
-    }
-
-    void render(SDL_Renderer* renderer, SDL_Texture* explosionTextures[]) {
-        if (active && frame < totalFrames) {
-            SDL_Rect dstRect = { x, y, 30, 30 };
-            SDL_RenderCopy(renderer, explosionTextures[frame], NULL, &dstRect);
-        }
-    }
-};
-vector<Explosion> explosions;
-SDL_Texture* explosionTextures[5]; // Chứa 5 ảnh hiệu ứng nổ
-Mix_Chunk* explosionSound = nullptr;      // Âm thanh nổ
-bool warningActive = false;
-
-void startWarning() {
-    warningActive = true;
-    warningStartTime = SDL_GetTicks(); // Lưu thời điểm bắt đầu
-}
-void renderWarning() {
-    if (!warningActive) return; // Không làm gì nếu chưa kích hoạt
-
-    Uint32 elapsed = SDL_GetTicks() - warningStartTime; // Tính thời gian đã trôi qua
-    if (elapsed > 500) {
-        warningActive = false; // Tắt hiệu ứng sau 0.5s
-        return;
-    }
-
-    // Tính alpha (độ trong suốt): Đậm dần 250ms đầu, nhạt dần 250ms sau
-    Uint8 alpha = (elapsed < 250) ? (elapsed * 100 / 250) : ((500 - elapsed) * 100 / 250);
-
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND); // Cho phép màu trong suốt
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, alpha); // Đặt màu đỏ với alpha
-    SDL_Rect fullScreen = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT }; // Vẽ toàn màn hình
-    SDL_RenderFillRect(renderer, &fullScreen);
-}
-
-struct Wall {
-    SDL_Rect rect;
-    Wall(int x, int y) { rect = { x, y, 40, 40 }; }
-    void render() {
-        SDL_RenderCopy(renderer, wallTexture, NULL, &rect);
-    }
-};
-vector<Wall> walls = {
-    {0,160}, {40,160},
-    {120,0}, {120,40},
-    {120, 160}, {120,240}, {120,200},
-    {240,240},{200,240}, {40,360},{40,400}, {240,200},{240,160},{240,120},{240,80},{240,40},
-    {40,240}, {80,320},{160,320},{160,360},{160,400},{240,320},
-    {240,360},{240,400},{320,120},{320,160},{320,160},{320,240},{360,160},
-    {360,240},{400,160},{400,240},
-    {360,40},{400,40}
-
-};
-void mirrorWalls() {
-    vector<Wall> mirroredWalls = walls; // Sao chép danh sách gốc
-
-    for (const Wall& wall : walls) {
-        int x = wall.rect.x;
-        int y = wall.rect.y;
-
-        // Đối xứng qua trục dọc
-        mirroredWalls.emplace_back(800 - x - 40, y);
-
-        // Đối xứng qua trục ngang
-        mirroredWalls.emplace_back(x, 800 - y - 40);
-
-        // Đối xứng qua gốc (400,400)
-        mirroredWalls.emplace_back(800 - x - 40, 800 - y - 40);
-    }
-
-    walls = mirroredWalls; // Cập nhật lại danh sách tường
-}
-
-struct Bullet {
-    int x, y, speed;
-    SDL_Rect rect;
-    Direction direction;
-    bool active;
-    double angle; // Góc xoay
-    Bullet(int _x, int _y, int _dir) { // Kiểm tra xem có constructor này không
-        x = _x;
-        y = _y;
-        direction = (Direction)_dir;
-    }
-    Bullet(int startX, int startY, Direction dir) {
-        direction = dir;
-        speed = 8;
-        active = true;
-
-        // Xác định góc xoay và vị trí viên đạn xuất phát chính giữa xe tăng
-        switch (direction) {
-        case UP:
-            angle = 0;
-            x = startX + 14;  // Chính giữa xe
-            y = startY;        // Cao hơn một chút
-            break;
-        case DOWN:
-            angle = 180;
-            x = startX + 15;
-            y = startY + 30;
-            break;
-        case LEFT:
-            angle = 270;
-            x = startX;        // Lùi sang trái một chút
-            y = startY + 15;
-            break;
-        case RIGHT:
-            angle = 90;
-            x = startX + 30;   // Tiến sang phải một chút
-            y = startY + 15;
-            break;
-        }
-
-        rect = { x, y, 10, 10 };
-    }
-
-    void update(std::vector<Wall>& walls);
-
-    void render(SDL_Renderer* renderer, SDL_Texture* bulletTexture) {
-        SDL_RenderCopyEx(renderer, bulletTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
-    }
-};
-
-struct Wall2 {
-    int x, y;
-    SDL_Rect rect;
-    bool destroyed;
-    Mix_Chunk* warning = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\warning.wav");      // Âm thanh nổ
-
-    Wall2(int startX, int startY) {
-        x = startX;
-        y = startY;
-        rect = { x, y, 20, 20 };
-        destroyed = false;
-    }
-
-    void render() {
-        if (!destroyed) {
-            SDL_RenderCopy(renderer, wall2Texture, NULL, &rect);
-        }
-    }
-    void checkBulletCollision(std::vector<Bullet>& bullets, std::vector<Wall2>& breakableWalls) {
-        for (auto& bullet : bullets) {
-            if (!bullet.active) continue;
-
-            // Duyệt từng tường trong danh sách
-            for (auto it = breakableWalls.begin(); it != breakableWalls.end(); ++it) {
-                if (SDL_HasIntersection(&it->rect, &bullet.rect)) {
-                    if (it->rect.x>280&&it->rect.x<520&&!mode_2) {
-                        startWarning();
-                        Mix_PlayChannel(-1, warning, 0);
-                    }
-                    int explosionX = bullet.rect.x + bullet.rect.w / 2 - 15; // 20 là nửa kích thước vụ nổ (40x40)
-                    int explosionY = bullet.rect.y + bullet.rect.h / 2 - 15;
-                    explosions.emplace_back(explosionX, explosionY);
-                    bullet.active = false; // Đạn biến mất
-                    // Xóa tường khỏi danh sách
-                    breakableWalls.erase(it);
-                    return; // Dừng vòng lặp vì iterator bị thay đổi
-                }
-            }
-        }
-    }
-};
-vector<Wall2> wall2s;
-void init_wall2() {
-    int x = 380, y = 380;
-    int size = 20; // Kích thước mỗi ô tường
-
-    // Lớp 1 (sát ô 40x40)
-    for (int i = -1; i <= 2; i++) {
-        wall2s.emplace_back(x + i * size, y - size); // Hàng trên
-        wall2s.emplace_back(x + i * size, y + size * 2); // Hàng dưới
-        wall2s.emplace_back(x - size, y + i * size); // Cột trái
-        wall2s.emplace_back(x + size * 2, y + i * size); // Cột phải
-    }
-
-    // Lớp 2 (ngoài lớp 1)
-    for (int i = -2; i <= 3; i++) {
-        wall2s.emplace_back(x + i * size, y - size * 2); // Hàng trên
-        wall2s.emplace_back(x + i * size, y + size * 3); // Hàng dưới
-        wall2s.emplace_back(x - size * 2, y + i * size); // Cột trái
-        wall2s.emplace_back(x + size * 3, y + i * size); // Cột phải
-    }
-    vector<pair<int, int>> positions = {
-        {200, 320}, {200, 440}, {560, 320}, {560, 440},
-        {320, 200}, {440, 200}, {320, 560}, {440, 560}
-    };
-
-    size = 20; // Kích thước của wall2
-
-    for (size_t i = 0; i < positions.size(); i++) {
-        int x = positions[i].first;
-        int y = positions[i].second;
-
-        wall2s.emplace_back(x, y);
-        wall2s.emplace_back(x + size, y);
-        wall2s.emplace_back(x, y + size);
-        wall2s.emplace_back(x + size, y + size);
-    }
-}
-
-void Bullet::update(std::vector<Wall>& walls) {
-    if (!active) return;
-
-    switch (direction) {
-    case UP: y -= speed; break;
-    case DOWN: y += speed; break;
-    case LEFT: x -= speed; break;
-    case RIGHT: x += speed; break;
-    }
-
-    rect.x = x;
-    rect.y = y;
-
-    // Kiểm tra ra ngoài màn hình
-    if (x < 0 || x > 800 || y < 0 || y > SCREEN_HEIGHT) {
-        active = false;
-        return;
-    }
-
-    // Kiểm tra va chạm với tường
-    for (auto& wall : walls) {
-        if (SDL_HasIntersection(&rect, &wall.rect)) {
-            active = false;
-
-            // Căn chỉnh vị trí vụ nổ vào chính giữa viên đạn
-            int explosionX = rect.x + rect.w / 2 - 15; // 20 là nửa kích thước vụ nổ (40x40)
-            int explosionY = rect.y + rect.h / 2 - 15;
-
-            explosions.emplace_back(explosionX, explosionY);
-            return;
-        }
-    }
-
-}
-
-struct Boss {
-    int x, y;
-    SDL_Rect rect;
-    bool alive = true;
-
-    Boss(int _x, int _y) : x(_x), y(_y) {
-        rect = { x, y, 40, 40 }; // Boss có kích thước 40x40
-    }
-    
-    // Kiểm tra va chạm với đạn
-    void checkBulletCollision(std::vector<Bullet>& bullets) {
-        if (mode_2) return;
-        for (auto& bullet : bullets) {
-            if (bullet.active && SDL_HasIntersection(&rect, &bullet.rect)) { // Sửa lỗi boss.rect
-                alive = false; // Boss chết
-                bullet.active = false; // Xóa đạn
-                gameOver = 1; // Game over
-            }
-        }
-    }
-
-    // Render boss
-    void render() {
-        if (mode_2) return;
-        if (alive) {
-            SDL_RenderCopy(renderer, bossTexture, NULL, &rect);
-        }
-    }
-};
-
-Boss boss(380, 380);
-
-struct Tank {
-    int x, y, speed, lives = 3;
-    double angle;
-    SDL_Rect rect;
-    Direction direction;
-    std::vector<Bullet> bullets;
-    int mode2 = 0;
-    bool keys[4] = { false, false, false, false }; // Trạng thái phím UP, DOWN, LEFT, RIGHT
-
-    Tank(int startX, int startY) {
-        x = startX;
-        y = startY;
-        speed = 3;
-        rect = { x, y, 40, 40 };
-        direction = UP;
-        angle = 0;
-    }
-
-    Uint32 lastShotTime = 0;
-    const Uint32 shotCooldown = 500; // 0.5 giây
-
-    void shoot() {
-        if (SDL_GetTicks() - cooldownStart >= cooldownTime) {
-            cooldownStart = SDL_GetTicks();  // Reset hồi chiêu
-        }
-        Uint32 currentTime = SDL_GetTicks();
-
-        if (currentTime - lastShotTime >= shotCooldown) {
-            Mix_Chunk* fireSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\shoot.wav");
-            bullets.emplace_back(x, y, direction);
-            lastShotTime = currentTime; // Cập nhật thời gian bắn
-            Mix_PlayChannel(-1, fireSound, 0);
-        }
-    }
-    void handleEvent(SDL_Event& e) {
-        if (mode2 == 0) {
-            if (e.type == SDL_KEYDOWN && e.key.repeat == 0) { // Nhấn phím
-                switch (e.key.keysym.sym) {
-                case SDLK_UP:
-                    keys[0] = true; direction = UP; angle = 0;
-                    break;
-                case SDLK_DOWN:
-                    keys[1] = true; direction = DOWN; angle = 180;
-                    break;
-                case SDLK_LEFT:
-                    keys[2] = true; direction = LEFT; angle = 270;
-                    break;
-                case SDLK_RIGHT:
-                    keys[3] = true; direction = RIGHT; angle = 90;
-                    break;
-                case SDLK_SPACE:
-                    shoot();
-                    break;
-                case SDLK_RSHIFT:
-                    shoot();
-                    break;
-                }
-            }
-            else if (e.type == SDL_KEYUP && e.key.repeat == 0) { // Nhả phím
-                switch (e.key.keysym.sym) {
-                case SDLK_UP:    keys[0] = false; break;
-                case SDLK_DOWN:  keys[1] = false; break;
-                case SDLK_LEFT:  keys[2] = false; break;
-                case SDLK_RIGHT: keys[3] = false; break;
-                }
-            }
-        }
-        else {
-            if (e.type == SDL_KEYDOWN && e.key.repeat == 0) { // Nhấn phím
-                switch (e.key.keysym.sym) {
-                case SDLK_w:
-                    keys[0] = true; direction = UP; angle = 0;
-                    break;
-                case SDLK_s:
-                    keys[1] = true; direction = DOWN; angle = 180;
-                    break;
-                case SDLK_a:
-                    keys[2] = true; direction = LEFT; angle = 270;
-                    break;
-                case SDLK_d:
-                    keys[3] = true; direction = RIGHT; angle = 90;
-                    break;
-                case SDLK_LSHIFT:
-                    shoot();
-                    break;
-                }
-            }
-            else if (e.type == SDL_KEYUP && e.key.repeat == 0) { // Nhả phím
-                switch (e.key.keysym.sym) {
-                case SDLK_w:    keys[0] = false; break;
-                case SDLK_s:  keys[1] = false; break;
-                case SDLK_a:  keys[2] = false; break;
-                case SDLK_d: keys[3] = false; break;
-                }
-            }
-            
-        }
-    }
-
-    void reset(int startX, int startY) {
-        x = startX;
-        y = startY;
-        bullets.clear();
-        direction = UP;
-        angle = 0;
-        lives = 3;
-        for (int i = 0; i < 4; i++) keys[i] = 0;
-    }
-
-    void update(std::vector<Wall>& walls);
-
-    void render() {
-        if(mode2==0) SDL_RenderCopyEx(renderer, tankTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
-        if(mode2==1) SDL_RenderCopyEx(renderer, enemyTankTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
-        for (auto& bullet : bullets) bullet.render(renderer, bulletTexture);
-    }
-};
 Tank playerTank(800 / 2, SCREEN_HEIGHT - 320);
+
 Tank player1(200, 400);
+
 Tank player2(600, 400);
-struct EnemyTank {
-    int x, y, speed;
-    double angle; // Góc quay
-    SDL_Rect rect;
-    Direction direction;
-    bool alive;
-    std::vector<Bullet> bullets;
-    Uint32 lastShotTime;
-    Uint32 lastChangeTime;
-    Uint32 changeInterval;
-    Mix_Chunk* explosionSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\boom.wav");      // Âm thanh nổ
-    EnemyTank(int startX, int startY) {
-        x = startX;
-        y = startY;
-        speed = 2;
-        rect = { x, y, 40, 40 };
-        direction = static_cast<Direction>(rand() % 4);
-        angle = getAngleFromDirection(direction);
-        alive = true;
-        lastShotTime = SDL_GetTicks();
-        lastChangeTime = SDL_GetTicks();
-        changeInterval = 1000 + rand() % 2000;
-    }
-
-    void update(std::vector<Wall>& walls, Tank& player, std::vector<EnemyTank>& enemies) {
-        Uint32 currentTime = SDL_GetTicks();
-        //Tim duong di den bosss
-        if (currentTime - lastChangeTime >= changeInterval) {
-            int dx = 380 - x;
-            int dy = 380 - y;
-
-            if (abs(dx) > abs(dy)) {
-                direction = (dx > 0) ? RIGHT : LEFT;
-            }
-            else {
-                direction = (dy > 0) ? DOWN : UP;
-            }
-
-            angle = getAngleFromDirection(direction);
-            lastChangeTime = currentTime;
-            changeInterval = 1000 + rand() % 1500;
-        }
-
-        if (alive) {
-            int newX = x, newY = y;
-            switch (direction) {
-            case UP: newY -= speed; break;
-            case DOWN: newY += speed; break;
-            case LEFT: newX -= speed; break;
-            case RIGHT: newX += speed; break;
-            }
-
-            SDL_Rect newRect = { newX + 5, newY + 5, 28,28 };
-
-            if (newX < 0 || newX + 40 > 800 || newY < 0 || newY + 40 > 800) {
-                direction = getNewDirection(direction);
-                angle = getAngleFromDirection(direction);
-            }
-            else {
-                bool collided = false;
-                //kiem tra va cham voi tuong
-                for (auto& wall : walls) {
-                    if (SDL_HasIntersection(&newRect, &wall.rect)) {
-                        direction = getNewDirection(direction);
-                        angle = getAngleFromDirection(direction);
-                        collided = true;
-                        break;
-                    }
-                }
-                for (auto& wall : wall2s) {
-                    if (SDL_HasIntersection(&newRect, &wall.rect)) {
-                        bullets.emplace_back(x, y, direction);
-                        direction = getNewDirection(direction);
-                        angle = getAngleFromDirection(direction);
-                        
-                        collided = true;
-                        break;
-                    }
-                }
-                
-                //kiem tra va cham voi boss
-                if (SDL_HasIntersection(&newRect, &boss.rect)) {
-                    direction = getNewDirection(direction);
-                    angle = getAngleFromDirection(direction);
-                    collided = true;
-                }
-                SDL_Rect newRect = { newX , newY , 40,40 };
-
-                //Kiem tra va cham voi enemies khac
-                for (auto& enemy : enemies) {
-                    if (&enemy != this && SDL_HasIntersection(&newRect, &enemy.rect)) {
-                        direction = getNewDirection(direction);
-                        angle = getAngleFromDirection(direction);
-                        collided = true;
-                        break;
-                    }
-                }
-                //kiem tra va cham voi tank
-                if (SDL_HasIntersection(&newRect, &player.rect)) {
-                    direction = getNewDirection(direction);
-                    angle = getAngleFromDirection(direction);
-                    collided = true;
-                }
-
-                if (!collided) {
-                    x = newX;
-                    y = newY;
-                    rect.x = x;
-                    rect.y = y;
-                    if ((x > 360 && x < 440) ||(y > 360 && y < 440))
-                        if (rand() % 50 == 0) {
-                            bullets.emplace_back(x, y, direction);
-                        }
-                }
-            }
-
-            if (rand() % 70 == 0) {
-                bullets.emplace_back(x, y, direction);
-            }
-        }
-
-        for (auto& bullet : bullets) bullet.update(walls);
-        //kiểm tra va chạm giữa đạn và tường 2;
-        for (Wall2& wall2 : wall2s) wall2.checkBulletCollision(bullets, wall2s);
-        //kiem tra bắn trúng boss
-        boss.checkBulletCollision(bullets);
-        // 🚀 **Kiểm tra va chạm giữa đạn của EnemyTank và Tank**
-        for (auto& enemyBullet : bullets) {
-            if (!enemyBullet.active) continue;
-
-            for (auto& playerBullet : player.bullets) {
-                if (!playerBullet.active) continue;
-
-                if (SDL_HasIntersection(&enemyBullet.rect, &playerBullet.rect)) {
-                    enemyBullet.active = false;
-                    playerBullet.active = false;
-                    
-                    // Căn chỉnh vị trí vụ nổ vào chính giữa viên đạn
-                    int explosionX = (enemyBullet.rect.x + enemyBullet.rect.w / 2 +
-                        playerBullet.rect.x + playerBullet.rect.w / 2) / 2 - 20; // 20 là nửa kích thước vụ nổ
-                    int explosionY = (enemyBullet.rect.y + enemyBullet.rect.h / 2 +
-                        playerBullet.rect.y + playerBullet.rect.h / 2) / 2 - 20;
-
-                    explosions.emplace_back(explosionX, explosionY);
-                }
-            }
-        }
-
-        // 🗑️ **Xóa các viên đạn không còn hoạt động**
-        bullets.erase(std::remove_if(bullets.begin(), bullets.end(),
-            [](const Bullet& b) { return !b.active; }), bullets.end());
-
-        player.bullets.erase(std::remove_if(player.bullets.begin(), player.bullets.end(),
-            [](const Bullet& b) { return !b.active; }), player.bullets.end());
-        //kiểm tra đạn va chạm với tank
-        for (auto& bullet : bullets) {
-            if (bullet.active && SDL_HasIntersection(&bullet.rect, &player.rect)) {
-                player.lives--;
-                bullet.active = false;
-                
-                // Phát âm thanh ngay khi vụ nổ bắt đầu
-                if (explosionSound) {
-                    Mix_PlayChannel(-1, explosionSound, 0);
-                }
-                explosions.emplace_back(player.x, player.y); // Thêm hiệu ứng nổ
-                player.x = 400;
-                player.y = 680;
-                
-                if (player.lives <= 0) {
-                    gameOver = 1;
-                    return;
-                }
-            }
-        }
-
-        for (auto& bullet : player.bullets) {
-            if (SDL_HasIntersection(&rect, &bullet.rect) && bullet.active) {
-                if (explosionSound) {
-                    Mix_PlayChannel(-1, explosionSound, 0);
-                }
-                alive = false;
-                score++;
-                explosions.emplace_back(x, y); // Hiệu ứng nổ khi EnemyTank bị bắn trúng
-                if (score > maxScore) maxScore = score;
-                bullet.active = false;
-                return;
-            }
-        }
-        
-    }
-
-    Direction getNewDirection(Direction oldDirection) {
-        Direction newDir;
-        do {
-            newDir = static_cast<Direction>(rand() % 4);
-        } while (newDir == oldDirection);
-        return newDir;
-    }
-
-    double getAngleFromDirection(Direction dir) {
-        switch (dir) {
-        case UP: return 0;
-        case RIGHT: return 90;
-        case DOWN: return 180;
-        case LEFT: return 270;
-        }
-        return 0;
-    }
-
-    void render() {
-        if (alive) {
-            SDL_RenderCopyEx(renderer, enemyTankTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
-        }
-        for (auto& bullet : bullets) bullet.render(renderer, bulletTexture);
-    }
-};
 
 std::vector<EnemyTank> enemies = {
      {100, 100}, {300, 150}, {50, 100}, {250, 70}, {600, 100}, {200, 450}
 };
 
-void Tank::update(std::vector<Wall>& walls) {
-    int newX = x, newY = y;
-
-    // Xử lý di chuyển liên tục
-    if (keys[0]) newY -= speed; // UP
-    if (keys[1]) newY += speed; // DOWN
-    if (keys[2]) newX -= speed; // LEFT
-    if (keys[3]) newX += speed; // RIGHT
-
-    // Giữ trong màn hình
-    if (newX < 0) newX = 0;
-    if (newX > 800 - 40) newX = 800 - 40;
-    if (newY < 0) newY = 0;
-    if (newY > 800 - 40) newY = 800 - 40;
-    bool canMove = true;
-    SDL_Rect newRect = { newX, newY, 40,40 };
-    //kiem tra va cham dan va tuong 2
-    for (Wall2& wall2 : wall2s) wall2.checkBulletCollision(bullets, wall2s);
-    //kiểm tra đạn trúng boss
-    boss.checkBulletCollision(bullets);
-    
-    // 🚗💥 Kiểm tra va chạm với xe địch
-    for (auto& enemy : enemies) {
-        if (SDL_HasIntersection(&newRect, &enemy.rect)) return; // Không di chuyển nếu chạm xe địch
-    }
-    newRect = { newX + 5, newY + 5, 28,28 };
-    for (auto& wall : walls) {
-        if (SDL_HasIntersection(&newRect, &wall.rect)) {
-            canMove = false;
-            break;
-        }
-    }
-    for (auto& wall : wall2s) {
-        if (SDL_HasIntersection(&newRect, &wall.rect)) {
-            canMove = false;
-            break;
-        }
-    }
-    //kiem tra va cham voi boss
-    if (SDL_HasIntersection(&newRect, &boss.rect)) {
-        canMove = false;
-    }
-    if (canMove) {
-        x = newX;
-        y = newY;
-        rect.x = x;
-        rect.y = y;
-    }
-    // Cập nhật đạn
-    for (auto& bullet : bullets) bullet.update(walls);
-    bullets.erase(remove_if(bullets.begin(), bullets.end(), [](Bullet& b) { return !b.active; }), bullets.end());
-}
-
 //sinh enemy
+
 Uint32 lastSpawnTime = 0;
+
 const Uint32 spawnInterval = 3000; // 3 giây
+
 void spawnEnemyTank() {
     Uint32 currentTime = SDL_GetTicks();
 
@@ -790,7 +80,9 @@ SDL_Texture* loadTexture(const char* path) {
     SDL_FreeSurface(surface);
     return texture;
 }
+
 // tải nền manu chính
+
 bool loadBackground() {
     SDL_Surface* surface = IMG_Load("C:\\Users\\ACER\\Downloads\\bgr_main.png");
     if (!surface) {
@@ -801,6 +93,7 @@ bool loadBackground() {
     SDL_FreeSurface(surface);
     return backgroundTexture != nullptr;
 }
+
 bool initSDL() {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL could not initialize! SDL Error: " << SDL_GetError() << std::endl;
@@ -839,6 +132,7 @@ bool initSDL() {
 
     return true;
 }
+
 bool loadGameTextures() {
     tankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank1 (2).png");
     enemyTankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank2 (2).png");
@@ -861,7 +155,9 @@ bool loadGameTextures() {
     explosionTextures[3] = loadTexture("C:\\Users\\ACER\\Downloads\\boom4.png");
     return tankTexture && enemyTankTexture && wallTexture && bulletTexture;
 }
+
 //xử lí chữ trong bảng pause
+
 void renderText(const std::string& text, int x, int y) {
     SDL_Color textColor = { 255, 0, 0, 255 }; // Màu chữ (đỏ)
     SDL_Surface* textSurface = TTF_RenderText_Solid(font2, text.c_str(), textColor);
@@ -881,6 +177,7 @@ void renderText(const std::string& text, int x, int y) {
     SDL_RenderCopy(renderer, textTexture, NULL, &renderQuad);
     SDL_DestroyTexture(textTexture);
 }
+
 void showGameOverScreen() {
     // Bật chế độ hòa trộn để vẽ màu trong suốt
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
@@ -962,6 +259,7 @@ void renderCooldownIndicator(int x, int y) {
         SDL_RenderCopy(renderer, bulletTexture2, &srcRect, &dstRect);
     }
 }
+
 void quit() {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
@@ -969,6 +267,7 @@ void quit() {
     SDL_Quit();
     IMG_Quit();
 }
+
 void rendermaxScore() {
     SDL_Color black = { 0, 0, 0, 255 };
     std::string scoreText = "High Score: " + std::to_string(maxScore);
@@ -982,6 +281,7 @@ void rendermaxScore() {
         SDL_DestroyTexture(textTexture);
     }
 }
+
 void renderScore() {
     SDL_Color black = { 0, 0, 0, 255 };
     std::string scoreText = "Score: " + std::to_string(score);
@@ -995,6 +295,7 @@ void renderScore() {
         SDL_DestroyTexture(textTexture);
     }
 }
+
 void update_live() {
     switch (playerTank.lives) {
     case 3:
@@ -1008,6 +309,7 @@ void update_live() {
         break;
     }
 }
+
 void update_live_p1() {
     switch (player1.lives) {
     case 3:
@@ -1025,6 +327,7 @@ void update_live_p1() {
         break;
     }
 }
+
 void update_live_p2() {
     switch (player2.lives) {
     case 3:
@@ -1042,6 +345,7 @@ void update_live_p2() {
         break;
     }
 }
+
 void init_maxScore() {
     ifstream in("maxScore.txt");
     if (in) {
@@ -1053,6 +357,7 @@ void init_maxScore() {
     score_tmp = maxScore;
     in.close();
 }
+
 void save_maxScore() {
     ofstream out("maxScore.txt");
     if (out) {
@@ -1060,6 +365,7 @@ void save_maxScore() {
     }
     out.close();
 }
+
 void save_data() {
     ofstream out("data.txt");
     if (!out) {
@@ -1096,6 +402,7 @@ void save_data() {
 
     out.close();
 }
+
 void load_data() {
     ifstream in("data.txt");
     if (!in) {
@@ -1140,6 +447,7 @@ void load_data() {
 
     in.close();
 }
+
 void reset(Tank& playerTank, std::vector<EnemyTank>& enemies, bool keepData = false) {
     if(keepData) load_data();
     else { // Nếu không giữ data (game mới), thì reset hết
@@ -1153,6 +461,7 @@ void reset(Tank& playerTank, std::vector<EnemyTank>& enemies, bool keepData = fa
         save_data();
     }
 }
+
 void check_shoot_mode2() {
     //kiem tra 2 đạn va chạm
     Mix_Chunk* explosionSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\boom.wav");      // Âm thanh nổ
@@ -1211,6 +520,7 @@ void check_shoot_mode2() {
         }
     }
 }
+
 int main() {
     
     player2.mode2 = 1;
@@ -1284,7 +594,6 @@ int main() {
             }
             if (gameOver) {
                 if (e.type == SDL_KEYDOWN) {
-                    played_soundGO = 0;
                     if (e.key.keysym.sym == SDLK_r) {  // Restart game
                         gameOver = false;
                         inMenu = false;
@@ -1370,12 +679,12 @@ int main() {
         }
         if (mode_2 == 0) {
             spawnEnemyTank();
-            playerTank.update(walls);
+            playerTank.update(walls,wall2s,boss,enemies);
             for (auto& enemy : enemies) enemy.update(walls, playerTank, enemies);
         }
         else {
-            player1.update(walls);
-            player2.update(walls);
+            player1.update(walls, wall2s, boss, enemies);
+            player2.update(walls, wall2s, boss, enemies);
         }
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);

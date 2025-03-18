@@ -138,6 +138,18 @@
     <Text Include="data.txt" />
     <Text Include="maxScore.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="boss.h" />
+    <ClInclude Include="bullet.h" />
+    <ClInclude Include="enemy.h" />
+    <ClInclude Include="explosion.h" />
+    <ClInclude Include="init_veriable.h" />
+    <ClInclude Include="lib_sdl.h" />
+    <ClInclude Include="tank.h" />
+    <ClInclude Include="wall.h" />
+    <ClInclude Include="wall2.h" />
+    <ClInclude Include="warning.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

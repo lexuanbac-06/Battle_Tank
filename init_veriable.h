@@ -1,1 +1,43 @@
-#pragma once
+﻿#pragma once
+#include"lib_sdl.h"
+int score = 0;
+int maxScore = 0;
+int score_tmp = 0;
+bool mode_2 = 0;
+const int SCREEN_WIDTH = 1000;
+const int SCREEN_HEIGHT = 800;
+SDL_Texture* tankTexture = nullptr;
+SDL_Texture* enemyTankTexture = nullptr;
+SDL_Texture* wallTexture = nullptr;
+SDL_Texture* wall2Texture = nullptr;
+SDL_Texture* bulletTexture = nullptr;
+SDL_Texture* bulletTexture2 = nullptr;
+SDL_Texture* backgroundTexture2 = nullptr;
+SDL_Texture* backgroundTexture = nullptr;
+SDL_Texture* pauseButtonTexture = nullptr;
+SDL_Texture* background_multitasking = nullptr;
+SDL_Texture* bossTexture = nullptr;
+SDL_Texture* lives1 = nullptr;
+SDL_Texture* lives2 = nullptr;
+SDL_Texture* lives3 = nullptr;
+Uint32 cooldownStart = 0;  // Thời gian bắt đầu hồi chiêu
+const Uint32 cooldownTime = 500;  // Thời gian hồi chiêu (ms)
+TTF_Font* font = nullptr;
+TTF_Font* font2 = nullptr;
+SDL_Rect pauseButtonRect = { 850, 30, 80, 80 }; // Kích thước và vị trí nút pause
+SDL_Rect multitaskingRect = { 800, 0, 200, 800 };// Kích thước và vị trí phần đa nhiệm 
+SDL_Rect Live = { 820, 100, 150, 300 };// Kích thước và vị trí phần mạng
+SDL_Rect Live1 = { 880, 260, 90, 180 };// Kích thước và vị trí phần mạng player 1
+SDL_Rect rect_p1 = { 820, 300, 75, 75 };// hộp tank 1
+SDL_Rect rect_p2 = { 820, 500, 75, 75 };// hộp tank 2
+SDL_Rect Live2 = { 880, 460, 90, 180 };// Kích thước và vị trí phần mạng player 2
+Mix_Chunk* explosionSound = nullptr;      // Âm thanh nổ
+bool isPaused = false;
+bool running = true;
+bool gameOver = 0;
+bool inMenu = true;
+bool played_soundGO = 0;
+Uint32 warningStartTime = 0;
+SDL_Window* window = nullptr;
+SDL_Renderer* renderer = nullptr;
+enum Direction { UP, DOWN, LEFT, RIGHT };
