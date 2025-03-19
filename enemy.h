@@ -263,7 +263,7 @@ void Tank::update(std::vector<Wall>& walls, std::vector<Wall2>& wall2s, Boss& bo
     }
 
     // Kiểm tra va chạm với boss
-    if (SDL_HasIntersection(&newRect, &boss.rect)) {
+    if (SDL_HasIntersection(&newRect, &boss.rect)&&!mode_2) {
         canMove = false;
     }
 

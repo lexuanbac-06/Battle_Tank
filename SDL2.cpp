@@ -492,7 +492,7 @@ void check_shoot_mode2() {
             bullet.active = false;
 
             // Phát âm thanh ngay khi vụ nổ bắt đầu
-            explosions.emplace_back(player1.x, player1.y); // Thêm hiệu ứng nổ
+            explosions.emplace_back(player1.x+5, player1.y+5); // Thêm hiệu ứng nổ
             if (explosionSound) {
                 Mix_PlayChannel(-1, explosionSound, 0);
             }
@@ -511,7 +511,7 @@ void check_shoot_mode2() {
             if (explosionSound) {
                 Mix_PlayChannel(-1, explosionSound, 0);
             }
-            explosions.emplace_back(player2.x, player2.y); // Thêm hiệu ứng nổ
+            explosions.emplace_back(player2.x+5, player2.y+5); // Thêm hiệu ứng nổ
 
             if (player2.lives <= 0) {
                 gameOver = 1;
