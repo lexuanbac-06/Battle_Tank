@@ -15,12 +15,12 @@
 #undef main  
 
 Tank playerTank(800 / 2, SCREEN_HEIGHT - 320);
-
+ 
 Tank player1(200, 400);
 
-Tank player2(600, 400);
+Tank player2(560, 400);
 
-std::vector<EnemyTank> enemies = {
+vector<EnemyTank> enemies = {
      {100, 100}, {300, 150}, {50, 100}, {250, 70}, {600, 100}, {200, 450}
 };
 
@@ -566,7 +566,7 @@ int main() {
                             }
                             else {
                                 player1.reset(200,400);
-                                player2.reset(600, 400);
+                                player2.reset(560, 400);
                                 isPaused = false;
                                 wall2s.clear();
                                 init_wall2();
@@ -662,7 +662,7 @@ int main() {
         }
         if (gameOver) {
             if (!played_soundGO) {
-                Mix_Chunk* gameoverSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\gameover.wav");  // Âm thanh nổ
+                Mix_Chunk* gameoverSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\gameover.wav"); 
                 Mix_PlayChannel(-1, gameoverSound, 0);
                 played_soundGO = 1;
             }
