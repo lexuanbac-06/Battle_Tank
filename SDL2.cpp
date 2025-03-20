@@ -671,7 +671,6 @@ int main() {
             continue;
         }
         if (isPaused) {
-
             showPauseMenu();
             SDL_RenderPresent(renderer);
             SDL_Delay(100);
@@ -720,6 +719,7 @@ int main() {
             update_live_p2();
             check_shoot_mode2();
         }
+        played_soundGO = 0;
         SDL_RenderPresent(renderer);
         SDL_Delay(16);
     }
