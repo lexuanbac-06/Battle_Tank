@@ -110,13 +110,13 @@ struct EnemyTank {
                     rect.x = x;
                     rect.y = y;
                     if ((x > 360 && x < 440) || (y > 360 && y < 440))
-                        if (rand() % 50 == 0) {
+                        if (rand() % 70 == 0) {
                             bullets.emplace_back(x, y, direction);
                         }
                 }
             }
 
-            if (rand() % 70 == 0) {
+            if (rand() % 100 == 0) {
                 bullets.emplace_back(x, y, direction);
             }
         }

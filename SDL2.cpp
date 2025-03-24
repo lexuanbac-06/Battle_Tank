@@ -627,7 +627,9 @@ int main() {
                             running = true;
                             player1.reset(200, 400);
                             player2.reset(560, 400);
-                            
+                            wall2s.clear();
+                            init_wall2();
+                            explosions.clear();
                         }
                         else if (y >= 200 && y <= 300) {
                             inMenu = false; // Bắt đầu game
