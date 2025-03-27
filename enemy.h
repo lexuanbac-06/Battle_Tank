@@ -110,13 +110,13 @@ struct EnemyTank {
                     rect.x = x;
                     rect.y = y;
                     if ((x > 360 && x < 440) || (y > 360 && y < 440))
-                        if (rand() % 70 == 0) {
+                        if (rand() % 100 == 0) {
                             bullets.emplace_back(x, y, direction);
                         }
                 }
             }
 
-            if (rand() % 100 == 0) {
+            if (rand() % 120 == 0) {
                 bullets.emplace_back(x, y, direction);
             }
         }
@@ -165,8 +165,8 @@ struct EnemyTank {
                     Mix_PlayChannel(-1, explosionSound, 0);
                 }
                 explosions.emplace_back(player.x, player.y); // Thêm hiệu ứng nổ
-                player.x = 400;
-                player.y = 680;
+                player.x = 380;
+                player.y = 670;
 
                 if (player.lives <= 0) {
                     gameOver = 1;

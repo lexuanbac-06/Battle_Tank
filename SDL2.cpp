@@ -147,6 +147,7 @@ bool loadGameTextures() {
     lives1 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\1live.png");
     lives2 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\2lives.png");
     lives3 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\3lives.png");
+    hs_tex = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\hoi_sinh.png");
     font = TTF_OpenFont("C:\\Users\\ACER\\Downloads\\font-chu-pixel\\Pixel Sans Serif.ttf", 15);
     font2 = TTF_OpenFont("C:\\Users\\ACER\\Downloads\\font-chu-pixel\\Pixel Sans Serif.ttf", 40);
     explosionTextures[0] = loadTexture("C:\\Users\\ACER\\Downloads\\boom1.png");
@@ -693,6 +694,7 @@ int main() {
         for (auto& wall : walls) wall.render();
         for (auto& wall : wall2s) wall.render();
         if (mode_2 == 0) {
+            if (mode_2 == 0) SDL_RenderCopy(renderer, hs_tex, NULL, &hs);// hiển thị điểm hồi sinh 
             playerTank.render();
             for (auto& enemy : enemies) enemy.render();
         }
