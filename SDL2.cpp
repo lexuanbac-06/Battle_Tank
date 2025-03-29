@@ -656,7 +656,7 @@ int main() {
                 if (e.type == SDL_MOUSEBUTTONDOWN) {//52 59 65 71
                     int x = e.button.x, y = e.button.y;
                     if (x >= 400 && x <= 700) {
-                        if (y >= 520 && y <= 580) {
+                        if (y >= 520 && y < 590) {
                             mode_2 = 1;
                             inMenu = false; // Bắt đầu game
                             gameOver = false; 
@@ -668,14 +668,14 @@ int main() {
                             explosions.clear();
                             enemies.clear();
                         }
-                        else if (y > 590 && y <= 640) {
+                        else if (y >= 590 && y < 650) {
                             inMenu = false; // Bắt đầu game
                             gameOver = false;  // ✅ Đảm bảo reset gameOver khi vào game
                             running = true;
                             mode_2 = 0;
                             reset(playerTank, enemies);
                         }
-                        else if (y >= 650 && y <= 700) {
+                        else if (y >= 650 && y < 710) {
                             inMenu = false; // Bắt đầu game
                             gameOver = false;  // ✅ Đảm bảo reset gameOver khi vào game
                             running = true;
@@ -700,6 +700,7 @@ int main() {
             continue;
         }
         if (gameOver) {
+            if (mode_2 == 0) reset(playerTank, enemies);
             if (!played_soundGO) {
                 Mix_Chunk* gameoverSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\gameover.wav"); 
                 Mix_PlayChannel(-1, gameoverSound, 0);
