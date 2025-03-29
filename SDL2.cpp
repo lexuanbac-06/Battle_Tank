@@ -12,13 +12,10 @@
 #include"boss.h"
 #include"enemy.h"
 #include"tank.h"
+#include"grass.h"
 #undef main  
-
-Tank playerTank(800 / 2, SCREEN_HEIGHT - 320);
- 
-Tank player1(200, 400);
-
-Tank player2(560, 400);
+vector<Grass> grass = { {320,680}, {320,720},{440,680}, {440,720}, {120,80}, {120,120},  {640,80}, {640,120}, {200,480}, {560,480} , {160,280}, {600,280},
+{ 40,320 }, {40,440},{ 720,320 }, {720,440}, {380,290}, {360,560},{400,560 }};
 
 vector<EnemyTank> enemies = {
      {100, 100}, {300, 150}, {50, 100}, {250, 70}, {600, 100}, {200, 450}
@@ -84,7 +81,7 @@ SDL_Texture* loadTexture(const char* path) {
 // tải nền manu chính
 
 bool loadBackground() {
-    SDL_Surface* surface = IMG_Load("C:\\Users\\ACER\\Downloads\\bgr_main.png");
+    SDL_Surface* surface = IMG_Load("C:\\Users\\ACER\\Downloads\\nen1.png");
     if (!surface) {
         std::cerr << "Failed to load background image! SDL_image Error: " << IMG_GetError() << std::endl;
         return false;
@@ -132,9 +129,9 @@ bool initSDL() {
 
     return true;
 }
-
+// tải ảnh game 
 bool loadGameTextures() {
-    tankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank1 (2).png");
+    tankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank1 (2) (2).png");
     enemyTankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank2 (2).png");
     wallTexture = loadTexture("C:\\Users\\ACER\\Downloads\\wall_pixel.png");
     wall2Texture = loadTexture("C:\\Users\\ACER\\Downloads\\wall2_pixel.png");
@@ -144,6 +141,7 @@ bool loadGameTextures() {
     background_multitasking = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\nen_da_nhiem.png");
     pauseButtonTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\pause_pixel.png");
     bossTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\mu_pixel.png");
+    grassTex= loadTexture("C:\\Users\\ACER\\Downloads\\co.png");
     lives1 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\1live.png");
     lives2 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\2lives.png");
     lives3 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\3lives.png");
@@ -158,24 +156,55 @@ bool loadGameTextures() {
 }
 
 //xử lí chữ trong bảng pause
+bool isMouseOverText = false; // Biến kiểm tra chuột có ở trên chữ không
 
 void renderText(const std::string& text, int x, int y) {
-    SDL_Color textColor = { 255, 0, 0, 255 }; // Màu chữ (đỏ)
+    int mouseX, mouseY;
+    SDL_GetMouseState(&mouseX, &mouseY);
+
+    // Tạo text tạm để lấy kích thước chữ
+    SDL_Surface* tempSurface = TTF_RenderText_Solid(font2, text.c_str(), { 0, 0, 0, 255 });
+    if (!tempSurface) return;
+
+    SDL_Rect textRect = { x, y, tempSurface->w, tempSurface->h };
+    SDL_FreeSurface(tempSurface);
+
+    // Kiểm tra chuột có nằm trên chữ không (chỉ khi ở Main Menu hoặc Pause Menu)
+    bool isMouseOverText = (mouseX >= textRect.x && mouseX <= textRect.x + textRect.w &&
+        mouseY >= textRect.y && mouseY <= textRect.y + textRect.h) &&
+        (isPaused || inMenu);
+
+    // Chọn màu chữ
+    SDL_Color textColor = isMouseOverText
+        ? SDL_Color{ 255, 255, 0, 255 }  // Vàng sáng khi hover
+    : SDL_Color{ 255, 255, 255, 255 };  // Vàng bình thường
+
+    SDL_Color outlineColor = { 0, 0, 0, 255 }; // Màu viền đen
+    int outlineOffset = 2; // Độ dày viền
+
+    // Vẽ viền chữ trước
+    int offsets[8][2] = {
+        {-outlineOffset, -outlineOffset}, {0, -outlineOffset}, {outlineOffset, -outlineOffset},
+        {-outlineOffset, 0}, {outlineOffset, 0},
+        {-outlineOffset, outlineOffset}, {0, outlineOffset}, {outlineOffset, outlineOffset}
+    };
+
+    for (int i = 0; i < 8; i++) {
+        SDL_Surface* outlineSurface = TTF_RenderText_Solid(font2, text.c_str(), outlineColor);
+        SDL_Texture* outlineTexture = SDL_CreateTextureFromSurface(renderer, outlineSurface);
+        SDL_Rect outlineRect = { x + offsets[i][0], y + offsets[i][1], outlineSurface->w, outlineSurface->h };
+        SDL_RenderCopy(renderer, outlineTexture, NULL, &outlineRect);
+        SDL_FreeSurface(outlineSurface);
+        SDL_DestroyTexture(outlineTexture);
+    }
+
+    // Vẽ chữ chính
     SDL_Surface* textSurface = TTF_RenderText_Solid(font2, text.c_str(), textColor);
-    if (!textSurface) {
-        std::cout << "Failed to render text surface! SDL_ttf Error: " << TTF_GetError() << std::endl;
-        return;
-    }
-
     SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-    SDL_FreeSurface(textSurface);
-    if (!textTexture) {
-        std::cout << "Failed to create texture from text! SDL Error: " << SDL_GetError() << std::endl;
-        return;
-    }
-
     SDL_Rect renderQuad = { x, y, textSurface->w, textSurface->h };
+
     SDL_RenderCopy(renderer, textTexture, NULL, &renderQuad);
+    SDL_FreeSurface(textSurface);
     SDL_DestroyTexture(textTexture);
 }
 
@@ -211,19 +240,16 @@ void showMainMenu() {
 
     // Vẽ lớp phủ màu đen trong suốt
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180); // 180 là độ trong suốt (0-255)
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     SDL_Rect overlayRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
     SDL_RenderFillRect(renderer, &overlayRect);
 
-    // Vẽ chữ
-    renderText("--- B A T T L E   T A N K ---", 100, 0);
-    renderText("2 Players Mode", 250, 100);
-    renderText("Resume", 350, 200);
-    renderText("New Game", 330, 300);
-    renderText("Quit", 370, 600);
-
+    renderText("2 Players", 380, 520);
+    renderText("1 Player", 400, 590);
+    renderText("Resume", 430, 650);
+    renderText("Quit", 460, 710);
     SDL_RenderPresent(renderer);
-}
+}//52 59 65 71
 
 void showPauseMenu() {
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND); // Đặt lại chế độ hòa trộn
@@ -231,10 +257,15 @@ void showPauseMenu() {
     SDL_Rect fullScreenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
     SDL_RenderFillRect(renderer, &fullScreenRect);
 
-    renderText("Continue", 300, 200);
-    renderText("Restart", 300, 300);
-    if(mode_2==0) renderText("Save and Quit", 230, 400);
-    renderText("Quit", 340, 500);
+    renderText("Continue", 300, 50);
+    renderText("Restart", 310, 150);
+    if (mode_2 == 0)
+    {
+        renderText("Save and Quit", 230, 250);
+        renderText("Quit", 370, 350);
+    }
+    else renderText("Quit", 370, 250);
+    
 }
 
 void renderCooldownIndicator(int x, int y) {
@@ -523,7 +554,6 @@ void check_shoot_mode2() {
 }
 
 int main() {
-    
     player2.mode2 = 1;
     init_maxScore();
     mirrorWalls();
@@ -559,8 +589,10 @@ int main() {
                 }
                 if (isPaused) {
                     if (x >= 300 && x <= 600) {
-                        if (y >= 200 && y < 300) isPaused = false; //tiep tuc
-                        else if (y >= 300 && y < 400) {//choi lai
+                        if (y >= 50 && y < 150) {
+                            isPaused = false; //tiep tuc
+                        }
+                        else if (y >= 150 && y < 250) {//choi lai
                             if (mode_2 == 0) {
                                 reset(playerTank, enemies);
                                 isPaused = false;
@@ -574,20 +606,23 @@ int main() {
                                 explosions.clear();
                             }
                         }
-                        else if (y >= 400 && y < 500&& mode_2==0) {//luu va thoat
-                            inMenu = true;
-                            isPaused = false;
-                            save_data();
-                        }
-                        else if (y >= 500 && y <= 600) {//thoat
-                            if(mode_2==0){
+
+                        else if (y >= 250 && y < 350) {//luu va thoat
+                            if (mode_2 == 0) {
                                 inMenu = true;
                                 isPaused = false;
-                                reset(playerTank, enemies);
+                                save_data();
                             }
                             else {
                                 inMenu = true;
                                 isPaused = false;
+                            }
+                        }
+                        else if (y >= 350 && y <= 450) {//thoat
+                            if(mode_2==0){
+                                inMenu = true;
+                                isPaused = false;
+                                reset(playerTank, enemies);
                             }
                         }
                     }
@@ -618,10 +653,10 @@ int main() {
                 continue;
             }
             if (inMenu) {
-                if (e.type == SDL_MOUSEBUTTONDOWN) {
+                if (e.type == SDL_MOUSEBUTTONDOWN) {//52 59 65 71
                     int x = e.button.x, y = e.button.y;
-                    if (x >= 250 && x <= 600) {
-                        if (y >= 100 && y <= 200) {
+                    if (x >= 400 && x <= 700) {
+                        if (y >= 520 && y <= 580) {
                             mode_2 = 1;
                             inMenu = false; // Bắt đầu game
                             gameOver = false; 
@@ -631,22 +666,23 @@ int main() {
                             wall2s.clear();
                             init_wall2();
                             explosions.clear();
+                            enemies.clear();
                         }
-                        else if (y >= 200 && y <= 300) {
-                            inMenu = false; // Bắt đầu game
-                            gameOver = false;  // ✅ Đảm bảo reset gameOver khi vào game
-                            running = true;
-                            mode_2 = 0;
-                            reset(playerTank, enemies,1);
-                        }
-                        else if (y >= 300 && y <= 400) {
+                        else if (y > 590 && y <= 640) {
                             inMenu = false; // Bắt đầu game
                             gameOver = false;  // ✅ Đảm bảo reset gameOver khi vào game
                             running = true;
                             mode_2 = 0;
                             reset(playerTank, enemies);
                         }
-                        else if (y >= 600 && y <= 700) {
+                        else if (y >= 650 && y <= 700) {
+                            inMenu = false; // Bắt đầu game
+                            gameOver = false;  // ✅ Đảm bảo reset gameOver khi vào game
+                            running = true;
+                            mode_2 = 0;
+                            reset(playerTank, enemies,1);
+                        }
+                        else if (y >= 710 && y <= 770) {
                             running = false; // Thoát game
                         }
                     }
@@ -706,6 +742,7 @@ int main() {
         SDL_RenderCopy(renderer, pauseButtonTexture, NULL, &pauseButtonRect);// hiển thị nút paus
         if(mode_2==0) boss.render();
         if(mode_2==0) renderCooldownIndicator(850, 500); // Hiển thị viên đạn hồi chiêu ở vị trí HUD
+      
         for (auto& explosion : explosions) {
             explosion.update();
         }
@@ -723,6 +760,7 @@ int main() {
             update_live_p2();
             check_shoot_mode2();
         }
+        for (auto g : grass) g.render();
         played_soundGO = 0;
         SDL_RenderPresent(renderer);
         SDL_Delay(16);

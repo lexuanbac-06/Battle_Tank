@@ -29,7 +29,7 @@ struct Wall2 {
             // Duyệt từng tường trong danh sách
             for (auto it = breakableWalls.begin(); it != breakableWalls.end(); ++it) {
                 if (SDL_HasIntersection(&it->rect, &bullet.rect)) {
-                    if (it->rect.x > 280 && it->rect.x < 520 && !mode_2) {
+                    if (it->rect.x > 280 && it->rect.x < 520 &&it->rect.y>280&&it->rect.y<480&& !mode_2) {
                         startWarning();
                         Mix_PlayChannel(-1, warning, 0);
                     }

@@ -167,7 +167,8 @@ struct EnemyTank {
                 explosions.emplace_back(player.x, player.y); // Thêm hiệu ứng nổ
                 player.x = 380;
                 player.y = 670;
-
+                for (int i = 0; i < 4; i++) player.keys[i] = false; // Ngắt toàn bộ nút di chuyển
+                player.takeDamage();
                 if (player.lives <= 0) {
                     gameOver = 1;
                     return;
@@ -244,7 +245,7 @@ void Tank::update(std::vector<Wall>& walls, std::vector<Wall2>& wall2s, Boss& bo
 
     // Kiểm tra va chạm với xe địch
     for (auto& enemy : enemies) {
-        if (SDL_HasIntersection(&newRect, &enemy.rect)) return; // Không di chuyển nếu chạm xe địch
+        if (SDL_HasIntersection(&newRect, &enemy.rect)) canMove = 0; // Không di chuyển nếu chạm xe địch
     }
 
     // Kiểm tra va chạm với tường
@@ -266,14 +267,17 @@ void Tank::update(std::vector<Wall>& walls, std::vector<Wall2>& wall2s, Boss& bo
     if (SDL_HasIntersection(&newRect, &boss.rect)&&!mode_2) {
         canMove = false;
     }
-
+    if (mode_2 == 1) {
+        if (mode2 == 1 && SDL_HasIntersection(&newRect, &player1.rect)) canMove = false;
+        if (mode2 == 0 && SDL_HasIntersection(&newRect, &player2.rect)) canMove = 0;
+    }
     if (canMove) {
         x = newX;
         y = newY;
         rect.x = x;
         rect.y = y;
     }
-
+    
     // Cập nhật đạn
     for (auto& bullet : bullets) {
         bullet.update(walls);

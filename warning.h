@@ -11,7 +11,7 @@ void startWarning() {
 void renderWarning() {
     if (!warningActive) return; // Không làm gì n?u ch?a kích ho?t
 
-    Uint32 elapsed = SDL_GetTicks() - warningStartTime; // Tính th?i gian ?ã trôi qua
+    Uint32 elapsed = SDL_GetTicks() - warningStartTime; // Tính thoi gian dã trôi qua
     if (elapsed > 500) {
         warningActive = false; // T?t hi?u ?ng sau 0.5s
         return;

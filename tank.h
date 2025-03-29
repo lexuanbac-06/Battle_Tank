@@ -14,6 +14,7 @@ struct Tank {
     Direction direction;
     std::vector<Bullet> bullets;
     int mode2 = 0;
+
     bool keys[4] = { false, false, false, false }; // Trạng thái phím UP, DOWN, LEFT, RIGHT
     Tank(int startX, int startY) {
         x = startX;
@@ -105,6 +106,29 @@ struct Tank {
         }
     }
 
+    
+
+    void update(vector<Wall>& walls, vector<Wall2>& wall2s, Boss& boss,vector <EnemyTank>& enemies);
+    Uint32 hitTimer = 0;  // Thời gian còn lại để nhấp nháy
+    const Uint32 hitDuration = 2000; // Nhấp nháy trong 2 giây
+
+    void takeDamage() {
+        hitTimer = SDL_GetTicks() + hitDuration; // Bắt đầu hiệu ứng nhấp nháy
+    }
+
+    void render() {
+        Uint32 currentTime = SDL_GetTicks();
+
+        if (hitTimer > currentTime && mode_2==0) {
+            // Chỉ hiển thị tank mỗi 100ms để tạo hiệu ứng nhấp nháy
+            if ((currentTime / 100) % 2 == 0) return;
+        }
+
+        if (mode2 == 0) SDL_RenderCopyEx(renderer, tankTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
+        if (mode2 == 1) SDL_RenderCopyEx(renderer, enemyTankTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
+
+        for (auto& bullet : bullets) bullet.render(renderer, bulletTexture);
+    }
     void reset(int startX, int startY) {
         x = startX;
         y = startY;
@@ -113,12 +137,11 @@ struct Tank {
         angle = 0;
         lives = 3;
         for (int i = 0; i < 4; i++) keys[i] = 0;
-    }
-
-    void update(vector<Wall>& walls, vector<Wall2>& wall2s, Boss& boss,vector <EnemyTank>& enemies);
-    void render() {
-        if (mode2 == 0) SDL_RenderCopyEx(renderer, tankTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
-        if (mode2 == 1) SDL_RenderCopyEx(renderer, enemyTankTexture, NULL, &rect, angle, NULL, SDL_FLIP_NONE);
-        for (auto& bullet : bullets) bullet.render(renderer, bulletTexture);
+        hitTimer = 0;
     }
 };
+Tank playerTank(800 / 2, SCREEN_HEIGHT - 320);
+
+Tank player1(200, 400);
+
+Tank player2(560, 400);

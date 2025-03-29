@@ -17,6 +17,7 @@ SDL_Texture* backgroundTexture = nullptr;
 SDL_Texture* pauseButtonTexture = nullptr;
 SDL_Texture* background_multitasking = nullptr;
 SDL_Texture* bossTexture = nullptr;
+SDL_Texture* grassTex = nullptr;
 SDL_Texture* hs_tex = nullptr;
 SDL_Texture* lives1 = nullptr;
 SDL_Texture* lives2 = nullptr;
