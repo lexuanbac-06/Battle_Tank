@@ -146,6 +146,7 @@ bool loadGameTextures() {
     lives2 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\2lives.png");
     lives3 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\3lives.png");
     hs_tex = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\hoi_sinh.png");
+    helpTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\help.png");
     font = TTF_OpenFont("C:\\Users\\ACER\\Downloads\\font-chu-pixel\\Pixel Sans Serif.ttf", 15);
     font2 = TTF_OpenFont("C:\\Users\\ACER\\Downloads\\font-chu-pixel\\Pixel Sans Serif.ttf", 40);
     explosionTextures[0] = loadTexture("C:\\Users\\ACER\\Downloads\\boom1.png");
@@ -248,6 +249,7 @@ void showMainMenu() {
     renderText("1 Player", 400, 590);
     renderText("Resume", 430, 650);
     renderText("Quit", 460, 710);
+    renderText("HELP?",800, 710);
     SDL_RenderPresent(renderer);
 }//52 59 65 71
 
@@ -295,6 +297,7 @@ void renderCooldownIndicator(int x, int y) {
 void quit() {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    SDL_DestroyTexture(helpTexture);
     TTF_Quit();
     SDL_Quit();
     IMG_Quit();
@@ -480,6 +483,7 @@ void load_data() {
     in.close();
 }
 
+
 void reset(Tank& playerTank, std::vector<EnemyTank>& enemies, bool keepData = false) {
     if(keepData) load_data();
     else { // Nếu không giữ data (game mới), thì reset hết
@@ -552,6 +556,7 @@ void check_shoot_mode2() {
         }
     }
 }
+
 
 int main() {
     player2.mode2 = 1;
@@ -659,7 +664,7 @@ int main() {
                         if (y >= 520 && y < 590) {
                             mode_2 = 1;
                             inMenu = false; // Bắt đầu game
-                            gameOver = false; 
+                            gameOver = false;
                             running = true;
                             player1.reset(200, 400);
                             player2.reset(560, 400);
@@ -680,11 +685,16 @@ int main() {
                             gameOver = false;  // ✅ Đảm bảo reset gameOver khi vào game
                             running = true;
                             mode_2 = 0;
-                            reset(playerTank, enemies,1);
+                            reset(playerTank, enemies, 1);
                         }
                         else if (y >= 710 && y <= 770) {
                             running = false; // Thoát game
                         }
+                        
+                    }
+                    else if (x >= 800 && x <= 1000 && y >= 710 && y <= 770) {
+                        showHelp = true;  // Hiển thị bảng hướng dẫn
+                        inMenu = 0;
                     }
                 }
             }
@@ -722,6 +732,21 @@ int main() {
             SDL_Delay(100);
             continue;
         }
+        if (showHelp) {
+            SDL_RenderCopy(renderer, helpTexture, NULL, NULL);  // Vẽ hình hướng dẫn toàn màn hình
+            SDL_RenderPresent(renderer);
+
+            // Chờ đến khi người chơi nhấn chuột để thoát khỏi bảng hướng dẫn
+            SDL_Event e;
+            while (SDL_WaitEvent(&e)) {
+                if (e.type == SDL_MOUSEBUTTONDOWN ) {
+                    inMenu = 1;
+                    showHelp = false;  // Đóng bảng hướng dẫn
+                    break;
+                }
+            }
+        }
+
         if (mode_2 == 0) {
             spawnEnemyTank();
             playerTank.update(walls,wall2s,boss,enemies);
