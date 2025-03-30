@@ -700,7 +700,13 @@ int main() {
             continue;
         }
         if (gameOver) {
-            if (mode_2 == 0) reset(playerTank, enemies);
+            playerTank.reset(800 / 2, SCREEN_HEIGHT - 320);
+            enemies = { {100, 100}, {50, 100}, {600, 100} };
+            boss.alive = 1;
+            wall2s.clear();
+            explosions.clear();
+            init_wall2();
+            save_data();
             if (!played_soundGO) {
                 Mix_Chunk* gameoverSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\gameover.wav"); 
                 Mix_PlayChannel(-1, gameoverSound, 0);
