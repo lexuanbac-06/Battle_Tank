@@ -1,27 +1,27 @@
-#pragma once
+ï»¿#pragma once
 #include"lib_sdl.h"
 #include"init_veriable.h"
 bool warningActive = false;
-
+Uint32 warningStartTime = 0;
 void startWarning() {
     warningActive = true;
-    warningStartTime = SDL_GetTicks(); // L?u th?i ?i?m b?t ??u
+    warningStartTime = SDL_GetTicks(); // lÆ°u thá»i gian báº¯t Ä‘áº§u 
 }
 
 void renderWarning() {
-    if (!warningActive) return; // Không làm gì n?u ch?a kích ho?t
+    if (!warningActive) return; // KhÃ´ng lÃ m gÃ¬ n?u ch?a kÃ­ch ho?t
 
-    Uint32 elapsed = SDL_GetTicks() - warningStartTime; // Tính thoi gian dã trôi qua
+    Uint32 elapsed = SDL_GetTicks() - warningStartTime; // TÃ­nh thoi gian dÃ£ trÃ´i qua
     if (elapsed > 500) {
         warningActive = false; // T?t hi?u ?ng sau 0.5s
         return;
     }
 
-    // Tính alpha (?? trong su?t): ??m d?n 250ms ??u, nh?t d?n 250ms sau
+    // TÃ­nh alpha (?? trong su?t): ??m d?n 250ms ??u, nh?t d?n 250ms sau
     Uint8 alpha = (elapsed < 250) ? (elapsed * 100 / 250) : ((500 - elapsed) * 100 / 250);
 
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND); // Cho phép màu trong su?t
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, alpha); // ??t màu ?? v?i alpha
-    SDL_Rect fullScreen = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT }; // V? toàn màn hình
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND); // Cho phÃ©p mÃ u trong su?t
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, alpha); // ??t mÃ u ?? v?i alpha
+    SDL_Rect fullScreen = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT }; // V? toÃ n mÃ n hÃ¬nh
     SDL_RenderFillRect(renderer, &fullScreen);
 }

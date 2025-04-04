@@ -13,6 +13,9 @@
 #include"enemy.h"
 #include"tank.h"
 #include"grass.h"
+#include"supper_bullet.h"
+#include"heart.h"
+#include"reWall.h"
 #undef main  
 vector<Grass> grass = { {320,680}, {320,720},{440,680}, {440,720}, {120,80}, {120,120},  {640,80}, {640,120}, {200,480}, {560,480} , {160,280}, {600,280},
 { 40,320 }, {40,440},{ 720,320 }, {720,440}, {380,290}, {360,560},{400,560 }};
@@ -21,11 +24,63 @@ vector<EnemyTank> enemies = {
      {100, 100}, {300, 150}, {50, 100}, {250, 70}, {600, 100}, {200, 450}
 };
 
-//sinh enemy
+//sinh item ở mode 2
+
+Uint32 lastItemSpawnTime = 0;
+const Uint32 itemSpawnInterval = 5000; // 5 giây
+
+void spawnRandomItem() {
+    static Uint32 lastItemSpawnTime = 0;
+    Uint32 currentTime = SDL_GetTicks();
+
+    if (currentTime - lastItemSpawnTime < 5000) return; // Chỉ spawn mỗi 5s
+
+    int spawnX = rand() % 760;
+    int spawnY = rand() % 760;
+
+    SDL_Rect itemRect = { spawnX, spawnY, 30, 30 };       // Kích thước item
+
+    bool validSpawn = true;
+
+    // Kiểm tra va chạm với walls
+    for (int i = 0; i < walls.size(); i++) {
+        if (SDL_HasIntersection(&itemRect, &walls[i].rect)) {
+            validSpawn = false;
+            break;
+        }
+    }
+
+    // Kiểm tra va chạm với wall2s
+    for (int i = 0; i < wall2s.size(); i++) {
+        if (SDL_HasIntersection(&itemRect, &wall2s[i].rect)) {
+            validSpawn = false;
+            break;
+        }
+    }
+
+    // Kiểm tra với player
+    if (SDL_HasIntersection(&itemRect, &player1.rect)|| SDL_HasIntersection(&itemRect, &player2.rect)) {
+        validSpawn = false;
+    }
+
+
+    if (!validSpawn) return;
+
+    int id = rand() % 2;
+    if (id == 0)
+        hearts.emplace_back(spawnX, spawnY);
+    else if (id == 1)
+        spBullets.emplace_back(spawnX, spawnY);
+
+    lastItemSpawnTime = currentTime;
+}
 
 Uint32 lastSpawnTime = 0;
 
-const Uint32 spawnInterval = 3000; // 3 giây
+const Uint32 spawnInterval = 3000;
+
+int enemySpawnCount = 0;
+int nextItemSpawnCount = 1+rand() % 5; // random từ 1->5
 
 void spawnEnemyTank() {
     Uint32 currentTime = SDL_GetTicks();
@@ -62,102 +117,102 @@ void spawnEnemyTank() {
     }
 
     if (validSpawn) {
-        enemies.emplace_back(spawnX, spawnY);
-        lastSpawnTime = currentTime; // 🔴 Cập nhật thời gian spawn mới
-    }
-}
+        EnemyTank newEnemy(spawnX, spawnY);
+        enemySpawnCount++;
 
-SDL_Texture* loadTexture(const char* path) {
-    SDL_Surface* surface = IMG_Load(path);
-    if (!surface) {
-        std::cerr << "Failed to load image: " << path << " SDL_image Error: " << IMG_GetError() << std::endl;
-        return nullptr;
+        if (enemySpawnCount >= nextItemSpawnCount) {
+            int id = rand() % 7;// random item 1-3
+            if(id==0||id==3||id==4||id==5) newEnemy.hasSPBullet = true;
+            if(id==1||id==6) newEnemy.hasHeart = true;
+            if(id==2) newEnemy.reWall = true;
+            enemySpawnCount = 0;
+            nextItemSpawnCount = 1+rand() % 5; // reset ngẫu nhiên từ 1-5
+        }
+        enemies.push_back(newEnemy);
+        lastSpawnTime = currentTime;
     }
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
-    return texture;
-}
 
-// tải nền manu chính
-
-bool loadBackground() {
-    SDL_Surface* surface = IMG_Load("C:\\Users\\ACER\\Downloads\\nen1.png");
-    if (!surface) {
-        std::cerr << "Failed to load background image! SDL_image Error: " << IMG_GetError() << std::endl;
-        return false;
-    }
-    backgroundTexture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
-    return backgroundTexture != nullptr;
 }
 
 bool initSDL() {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
         std::cerr << "SDL could not initialize! SDL Error: " << SDL_GetError() << std::endl;
         return false;
     }
-    if (SDL_Init(SDL_INIT_AUDIO) < 0) {
-        printf("Lỗi khởi tạo SDL: %s\n", SDL_GetError());
-        return -1;
-    }
+
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
-        printf("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
+        std::cerr << "SDL_mixer could not initialize! SDL_mixer Error: " << Mix_GetError() << std::endl;
+        SDL_Quit();
         return false;
     }
 
     window = SDL_CreateWindow("Battle Tanks", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
     if (!window) {
         std::cerr << "Window could not be created! SDL Error: " << SDL_GetError() << std::endl;
+        SDL_Quit();
         return false;
     }
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
         std::cerr << "Renderer could not be created! SDL Error: " << SDL_GetError() << std::endl;
+        SDL_DestroyWindow(window);
+        SDL_Quit();
         return false;
     }
 
-    // Khởi tạo SDL_ttf
     if (TTF_Init() == -1) {
         std::cerr << "SDL_ttf could not initialize! SDL_ttf Error: " << TTF_GetError() << std::endl;
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
         return false;
     }
+
     if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
         std::cerr << "SDL_image could not initialize! SDL_image Error: " << IMG_GetError() << std::endl;
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
         return false;
     }
 
     return true;
 }
+
 // tải ảnh game 
 bool loadGameTextures() {
-    tankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank1 (2) (2).png");
-    enemyTankTexture = loadTexture("C:\\Users\\ACER\\Downloads\\tank2 (2).png");
-    wallTexture = loadTexture("C:\\Users\\ACER\\Downloads\\wall_pixel.png");
-    wall2Texture = loadTexture("C:\\Users\\ACER\\Downloads\\wall2_pixel.png");
-    bulletTexture = loadTexture("C:\\Users\\ACER\\Downloads\\bullet_pixel.png");
-    bulletTexture2 = loadTexture("C:\\Users\\ACER\\Downloads\\bullet_pixel2.png");
-    backgroundTexture2 = loadTexture("C:\\Users\\ACER\\Downloads\\nen_nau.jpg");
+    tankTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\tank1 (2) (2).png");
+    enemyTankTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\tank2 (2).png");
+    wallTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\wall_pixel.png");
+    wall2Texture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\wall2_pixel.png");
+    bulletTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\bullet_pixel.png");
+    bulletTexture2 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\bullet_pixel2.png");
+    backgroundTexture2 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\nen_nau.jpg");
     background_multitasking = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\nen_da_nhiem.png");
     pauseButtonTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\pause_pixel.png");
     bossTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\mu_pixel.png");
-    grassTex= loadTexture("C:\\Users\\ACER\\Downloads\\co.png");
+    supper_bullet_text = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\supper_bullet.png");
+    grassTex= IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\co.png");
     lives1 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\1live.png");
     lives2 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\2lives.png");
     lives3 = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\3lives.png");
     hs_tex = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\hoi_sinh.png");
+    heart_tex = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\heart.png");
+    reWall_tex = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\reWall.png");
+    backgroundTexture= IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\nen1.png");
     helpTexture = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\help.png");
     font = TTF_OpenFont("C:\\Users\\ACER\\Downloads\\font-chu-pixel\\Pixel Sans Serif.ttf", 15);
     font2 = TTF_OpenFont("C:\\Users\\ACER\\Downloads\\font-chu-pixel\\Pixel Sans Serif.ttf", 40);
-    explosionTextures[0] = loadTexture("C:\\Users\\ACER\\Downloads\\boom1.png");
-    explosionTextures[1] = loadTexture("C:\\Users\\ACER\\Downloads\\boom2.png");
-    explosionTextures[2] = loadTexture("C:\\Users\\ACER\\Downloads\\boom3.png");
-    explosionTextures[3] = loadTexture("C:\\Users\\ACER\\Downloads\\boom4.png");
+    explosionTextures[0] = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\boom1.png");
+    explosionTextures[1] = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\boom2.png");
+    explosionTextures[2] = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\boom3.png");
+    explosionTextures[3] = IMG_LoadTexture(renderer, "C:\\Users\\ACER\\Downloads\\boom4.png");
     return tankTexture && enemyTankTexture && wallTexture && bulletTexture;
 }
 
-//xử lí chữ trong bảng pause
-bool isMouseOverText = false; // Biến kiểm tra chuột có ở trên chữ không
+bool isMouseOverText = false;
 
 void renderText(const std::string& text, int x, int y) {
     int mouseX, mouseY;
@@ -220,9 +275,15 @@ void showGameOverScreen() {
     if (mode_2 == 0) {
         renderText("G A M E  O V E R", 250, 200);
         string ys;
-        if (score > score_tmp) ys = "New High Score!!!: " + to_string(score);
-        else ys = "Your Score: " + to_string(score);
-        renderText(ys.c_str(), 250, 300);
+        if (score > score_tmp) {
+            ys = "New High Score!!!: " + to_string(score);
+            renderText(ys.c_str(), 200, 300);
+        }
+        else
+        {
+            ys = "Your Score: " + to_string(score);
+            renderText(ys.c_str(), 250, 300);
+        }
     }
     else if (player2.lives == 0) renderText("Player1 Win!",300,200);
     else if (player1.lives == 0) renderText("Player2 Win!",300,200);
@@ -271,26 +332,49 @@ void showPauseMenu() {
 }
 
 void renderCooldownIndicator(int x, int y) {
-    if (!bulletTexture2) return; // Đảm bảo texture đã được tải trước đó
-
-    Uint32 elapsed = SDL_GetTicks() - cooldownStart;
+    SDL_Texture* bullet=nullptr;
+    int w, h;
+    if (playerTank.spB) {
+        x -= 25;
+        w = 150;
+        h = 150;
+        cooldownTime = 250;
+        bullet = supper_bullet_text;
+        SDL_Color black = { 255, 0, 0, 255 };
+        string spB = to_string(playerTank.spB);
+        SDL_Surface* textSurface = TTF_RenderText_Solid(font, spB.c_str(), black);
+        if (textSurface) {
+            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+            SDL_Rect spB_tex = { x+60, 650, textSurface->w+10, textSurface->h+10 };
+            SDL_RenderCopy(renderer, textTexture, NULL, &spB_tex);
+            SDL_FreeSurface(textSurface);
+            SDL_DestroyTexture(textTexture);
+        }
+    }
+    else {
+        w = 100;
+        h = 100;
+        bullet = bulletTexture2;
+        cooldownTime = 500;
+    }
+    Uint32 elapsed = SDL_GetTicks() - cooldownStart;// thời gian kể từ khi bắn đạn 
     if (elapsed >= cooldownTime) {
         // Nếu hồi chiêu xong, hiển thị đầy đủ viên đạn
-        SDL_Rect dstRect = { x, y, 100, 100 };
-        SDL_RenderCopy(renderer, bulletTexture2, NULL, &dstRect);
+        SDL_Rect dstRect = { x, y, w, h };
+        SDL_RenderCopy(renderer, bullet, NULL, &dstRect);
         return;
     }
 
     // Nếu đang hồi chiêu, tính toán phần ảnh hiển thị dần
     float progress = (float)elapsed / cooldownTime; // Tiến trình (0 → 1)
 
-    int fullHeight = 100; // Chiều cao đầy đủ của viên đạn
+    int fullHeight = w; // Chiều cao đầy đủ của viên đạn
     int visibleHeight = (int)(progress * fullHeight); // Tính phần ảnh hiển thị
 
     if (visibleHeight > 0) {  // Chỉ vẽ nếu có phần nào hiển thị
-        SDL_Rect srcRect = { 0, fullHeight - visibleHeight, 100, visibleHeight };
-        SDL_Rect dstRect = { x, y + (fullHeight - visibleHeight), 100, visibleHeight };
-        SDL_RenderCopy(renderer, bulletTexture2, &srcRect, &dstRect);
+        SDL_Rect srcRect = { 0, fullHeight - visibleHeight, w, visibleHeight };// phần ảnh cần lấy
+        SDL_Rect dstRect = { x, y + (fullHeight - visibleHeight), w, visibleHeight };// phần hiển thị lên màn hình 
+        SDL_RenderCopy(renderer, bullet, &srcRect, &dstRect);
     }
 }
 
@@ -381,6 +465,56 @@ void update_live_p2() {
     }
 }
 
+void render_supper_bullet_mode2() {
+    if (!font) {
+        std::cerr << "Font chưa được load!" << std::endl;
+        return;
+    }
+
+    SDL_Color red = { 0, 0, 0, 255 };
+
+    std::string spB1 = std::to_string(player1.spB);
+    std::string spB2 = std::to_string(player2.spB);
+
+    SDL_Surface* textSurface1 = TTF_RenderText_Solid(font, spB1.c_str(), red);
+    SDL_Surface* textSurface2 = TTF_RenderText_Solid(font, spB2.c_str(), red);
+
+    if (!textSurface1 || !textSurface2) {
+        std::cerr << "Lỗi tạo SDL_Surface: " << TTF_GetError() << std::endl;
+        if (textSurface1) SDL_FreeSurface(textSurface1);
+        if (textSurface2) SDL_FreeSurface(textSurface2);
+        return;
+    }
+
+    SDL_Texture* textTexture1 = SDL_CreateTextureFromSurface(renderer, textSurface1);
+    SDL_Texture* textTexture2 = SDL_CreateTextureFromSurface(renderer, textSurface2);
+
+    if (!textTexture1 || !textTexture2) {
+        std::cerr << "Lỗi tạo SDL_Texture: " << SDL_GetError() << std::endl;
+        SDL_FreeSurface(textSurface1);
+        SDL_FreeSurface(textSurface2);
+        if (textTexture1) SDL_DestroyTexture(textTexture1);
+        if (textTexture2) SDL_DestroyTexture(textTexture2);
+        return;
+    }
+
+    SDL_Rect spB_tex1 = { 890, 340, textSurface1->w + 10, textSurface1->h + 10 };
+    SDL_Rect spB_tex2 = { 890, 540, textSurface2->w + 10, textSurface2->h + 10 };
+
+    SDL_RenderCopy(renderer, textTexture1, NULL, &spB_tex1);
+    SDL_RenderCopy(renderer, textTexture2, NULL, &spB_tex2);
+    SDL_Rect rb1 = { 930, 340, 30, 30 };// vị trí supper đạn 
+    SDL_Rect rb2 = { 930, 540, 30, 30 };//
+
+    SDL_RenderCopy(renderer, supper_bullet_text, NULL, &rb1);// hiển thị supper đạn 
+    SDL_RenderCopy(renderer, supper_bullet_text, NULL, &rb2);
+
+    SDL_FreeSurface(textSurface1);
+    SDL_FreeSurface(textSurface2);
+    SDL_DestroyTexture(textTexture1);
+    SDL_DestroyTexture(textTexture2);
+}
+
 void init_maxScore() {
     ifstream in("maxScore.txt");
     if (in) {
@@ -435,6 +569,25 @@ void save_data() {
     // 🔴 Lưu thời gian spawn gần nhất
     out << lastSpawnTime << endl;
 
+    // Lưu trạng thái get_spB của player tank
+    out << playerTank.spB << endl;
+
+    // Lưu trạng thái SP bullets của các enemy
+    for (auto& enemy : enemies) {
+        out << enemy.hasSPBullet<<" "<<enemy.hasHeart <<" "<<enemy.reWall<< endl;  // Lưu trạng thái hasSPBullet của enemy
+    }
+
+    for (auto& spB : spBullets) {
+        out << spB.x << " " << spB.y << endl;
+    }
+    out << "-1 -1\n";
+    for (auto& h : hearts) {
+        out << h.x << " " << h.y << endl;
+    }
+    out << "-1 -1\n";
+    for (auto& r : reW) {
+        out << r.x << " " << r.y << endl;
+    }
     out.close();
 }
 
@@ -477,12 +630,30 @@ void load_data() {
         }
     }
 
+    
     // 🔴 Load lại thời gian spawn
     in >> lastSpawnTime;
+    // Tải trạng thái get_spB của player tank
+    in >> playerTank.spB;
 
+    // Tải trạng thái SP của các enemy
+    for (auto& enemy : enemies) {
+        in >> enemy.hasSPBullet>>enemy.hasHeart>>enemy.reWall;  // Tải trạng thái hasSPBullet của enemy
+    }
+
+    while (in >> x >> y) {
+        spBullets.emplace_back(x, y);
+        if (x == -1 &&y == -1) break;
+    }
+    while (in >> x >> y) {
+        hearts.emplace_back(x, y);
+        if (x == -1 && y == -1) break;
+    }
+    while (in >> x >> y) {
+        reW.emplace_back(x, y);
+    }
     in.close();
 }
-
 
 void reset(Tank& playerTank, std::vector<EnemyTank>& enemies, bool keepData = false) {
     if(keepData) load_data();
@@ -495,6 +666,9 @@ void reset(Tank& playerTank, std::vector<EnemyTank>& enemies, bool keepData = fa
         explosions.clear();
         init_wall2();
         save_data();
+        spBullets.clear();
+        hearts.clear();
+        reW.clear();
     }
 }
 
@@ -557,31 +731,72 @@ void check_shoot_mode2() {
     }
 }
 
-
 int main() {
     player2.mode2 = 1;
     init_maxScore();
     mirrorWalls();
     srand(time(0));
+    srand(SDL_GetTicks()); // hoặc srand(time(NULL));
+
     if (!initSDL()) return -1;
     int max_score = 0;
-    loadBackground();//gọi nền menu chính
     loadGameTextures();
     init_wall2();
     while (running) {
         SDL_RenderCopy(renderer, backgroundTexture2, NULL, NULL);
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            if (mode_2 == 0) {
+            if(mode_2 == 0) {
                 auto it = enemies.begin();
                 //xóa xe địch đã chết
                 while (it != enemies.end()) {
                     if (!it->alive) {
+                        int X = it->x + 5;
+                        int Y = it->y + 5;
+
+                        if (it->hasSPBullet) {
+                            spBullets.emplace_back(X, Y);  //  Thả SP_bullet tại vị trí enemy
+                        }
+                        else if (it->hasHeart) {
+                            hearts.emplace_back(X, Y);  //  Thả heart tại vị trí enemy
+                        }
+                        else if (it->reWall) {
+                            reW.emplace_back(X, Y);  //  Thả reWall tại vị trí enemy
+                        }
+
                         it = enemies.erase(it); // Xóa enemy đã chết
                     }
                     else {
                         ++it;
                     }
+                }
+                
+            }
+            if(mode_2) {
+                spawnRandomItem();
+            }
+            for (auto it = spBullets.begin(); it != spBullets.end(); ) {
+                if (it->era()) {
+                    it = spBullets.erase(it); // Xóa khỏi danh sách
+                }
+                else {
+                    ++it;
+                }
+            }
+            for (auto it = hearts.begin(); it != hearts.end(); ) {
+                if (it->era()) {
+                    it = hearts.erase(it); // Xóa khỏi danh sách
+                }
+                else {
+                    ++it;
+                }
+            }
+            for (auto it = reW.begin(); it != reW.end(); ) {
+                if (it->era()) {
+                    it = reW.erase(it); // Xóa khỏi danh sách
+                }
+                else {
+                    ++it;
                 }
             }
             if (e.type == SDL_QUIT) running = false;
@@ -609,6 +824,8 @@ int main() {
                                 wall2s.clear();
                                 init_wall2();
                                 explosions.clear();
+                                spBullets.clear();
+                                hearts.clear();
                             }
                         }
 
@@ -646,13 +863,14 @@ int main() {
                             wall2s.clear();
                             init_wall2();
                             explosions.clear();
+                            spBullets.clear();
+                            hearts.clear();
                         }
                     }
                     if (e.key.keysym.sym == SDLK_q) {  // Quay lại menu chính
                         gameOver = false;  // ✅ Đảm bảo đặt về false khi quay lại menu
                         inMenu = true;
                         running = true;
-
                     }
                 }
                 continue;
@@ -770,11 +988,13 @@ int main() {
             player1.render();
             player2.render();
         }
+        for (auto& spB : spBullets) spB.render();
+        for (auto& h : hearts) h.render();
+        for (auto& r : reW) r.render();
         SDL_RenderCopy(renderer, background_multitasking, NULL, &multitaskingRect);
         SDL_RenderCopy(renderer, pauseButtonTexture, NULL, &pauseButtonRect);// hiển thị nút paus
         if(mode_2==0) boss.render();
         if(mode_2==0) renderCooldownIndicator(850, 500); // Hiển thị viên đạn hồi chiêu ở vị trí HUD
-      
         for (auto& explosion : explosions) {
             explosion.update();
         }
@@ -788,6 +1008,7 @@ int main() {
             renderWarning();
         }
         else {
+            render_supper_bullet_mode2();
             update_live_p1();
             update_live_p2();
             check_shoot_mode2();

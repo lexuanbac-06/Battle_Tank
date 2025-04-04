@@ -1,11 +1,15 @@
 ﻿#pragma once
 #include"tank.h"
+
 struct EnemyTank {
     int x, y, speed;
     double angle; // Góc quay
     SDL_Rect rect;
     Direction direction;
     bool alive;
+    bool hasSPBullet = false;
+    bool hasHeart = false;
+    bool reWall = false;
     std::vector<Bullet> bullets;
     Uint32 lastShotTime;
     Uint32 lastChangeTime;
@@ -21,7 +25,7 @@ struct EnemyTank {
         alive = true;
         lastShotTime = SDL_GetTicks();
         lastChangeTime = SDL_GetTicks();
-        changeInterval = 1000 + rand() % 2000;
+        changeInterval = 1000 + rand() % 2000;// đổi hướng sau 1-3s 
     }
 
     void update(std::vector<Wall>& walls, Tank& player, std::vector<EnemyTank>& enemies) {
@@ -181,15 +185,19 @@ struct EnemyTank {
                 if (explosionSound) {
                     Mix_PlayChannel(-1, explosionSound, 0);
                 }
-                alive = false;
-                score++;
-                explosions.emplace_back(x, y); // Hiệu ứng nổ khi EnemyTank bị bắn trúng
-                if (score > maxScore) maxScore = score;
+
+                // Đảm bảo chỉ cộng điểm 1 lần
+                if (alive) { 
+                    alive = false;
+                    score++;
+                    explosions.emplace_back(x, y);
+                    if (score > maxScore) maxScore = score;
+                }
+
                 bullet.active = false;
                 return;
             }
         }
-
     }
 
     Direction getNewDirection(Direction oldDirection) {
@@ -217,7 +225,10 @@ struct EnemyTank {
         for (auto& bullet : bullets) bullet.render(renderer, bulletTexture);
     }
 };
+
+
 void Tank::update(std::vector<Wall>& walls, std::vector<Wall2>& wall2s, Boss& boss, std::vector<EnemyTank>& enemies) {
+
     int newX = x, newY = y;
 
     // Xử lý di chuyển liên tục
@@ -225,7 +236,6 @@ void Tank::update(std::vector<Wall>& walls, std::vector<Wall2>& wall2s, Boss& bo
     if (keys[1]) newY += speed; // DOWN
     if (keys[2]) newX -= speed; // LEFT
     if (keys[3]) newX += speed; // RIGHT
-
     // Giữ trong màn hình
     if (newX < 0) newX = 0;
     if (newX > 800 - 40) newX = 800 - 40;

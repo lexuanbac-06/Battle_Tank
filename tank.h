@@ -14,7 +14,7 @@ struct Tank {
     Direction direction;
     std::vector<Bullet> bullets;
     int mode2 = 0;
-
+    int spB = 0;
     bool keys[4] = { false, false, false, false }; // Trạng thái phím UP, DOWN, LEFT, RIGHT
     Tank(int startX, int startY) {
         x = startX;
@@ -26,9 +26,11 @@ struct Tank {
     }
 
     Uint32 lastShotTime = 0;
-    const Uint32 shotCooldown = 500; // 0.5 giây
+    Uint32 shotCooldown=0;
 
     void shoot() {
+        if (spB) shotCooldown = 250;
+        else shotCooldown = 500;
         if (SDL_GetTicks() - cooldownStart >= cooldownTime) {
             cooldownStart = SDL_GetTicks();  // Reset hồi chiêu
         }
@@ -36,11 +38,26 @@ struct Tank {
 
         if (currentTime - lastShotTime >= shotCooldown) {
             Mix_Chunk* fireSound = Mix_LoadWAV("C:\\Users\\ACER\\Downloads\\shoot.wav");
-            bullets.emplace_back(x, y, direction);
+            if (spB) {
+                spB--;
+                if (direction == LEFT || direction == RIGHT) {
+                    bullets.emplace_back(x, y - 10, direction); 
+                    bullets.emplace_back(x, y-1, direction);     
+                    bullets.emplace_back(x, y + 8, direction);  
+                }
+                else {
+                    bullets.emplace_back(x - 10, y, direction);
+                    bullets.emplace_back(x-1, y, direction);
+                    bullets.emplace_back(x + 8, y, direction);
+                }
+            }
+
+            else bullets.emplace_back(x, y, direction);
             lastShotTime = currentTime; // Cập nhật thời gian bắn
             Mix_PlayChannel(-1, fireSound, 0);
         }
     }
+    
     void handleEvent(SDL_Event& e) {
         if (mode2 == 0) {
             if (e.type == SDL_KEYDOWN && e.key.repeat == 0) { // Nhấn phím
@@ -132,6 +149,7 @@ struct Tank {
     void reset(int startX, int startY) {
         x = startX;
         y = startY;
+        spB = 0;
         bullets.clear();
         direction = UP;
         angle = 0;

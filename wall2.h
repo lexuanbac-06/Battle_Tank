@@ -33,7 +33,7 @@ struct Wall2 {
                         startWarning();
                         Mix_PlayChannel(-1, warning, 0);
                     }
-                    int explosionX = bullet.rect.x + bullet.rect.w / 2 - 15; // 20 là nửa kích thước vụ nổ (40x40)
+                    int explosionX = bullet.rect.x + bullet.rect.w / 2 - 15; 
                     int explosionY = bullet.rect.y + bullet.rect.h / 2 - 15;
                     explosions.emplace_back(explosionX, explosionY);
                     bullet.active = false; // Đạn biến mất

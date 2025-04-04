@@ -1,12 +1,15 @@
 ﻿  SDL2.cpp
-C:\VClib\Project1\Project1\SDL2.cpp(100,16): warning C4566: character represented by universal-character-name '\u1ED7' cannot be represented in the current code page (1252)
-C:\VClib\Project1\Project1\SDL2.cpp(100,16): warning C4566: character represented by universal-character-name '\u1EDF' cannot be represented in the current code page (1252)
-C:\VClib\Project1\Project1\SDL2.cpp(100,16): warning C4566: character represented by universal-character-name '\u1EA1' cannot be represented in the current code page (1252)
-C:\VClib\Project1\Project1\SDL2.cpp(101,16): warning C4305: 'return': truncation from 'int' to 'bool'
-C:\VClib\Project1\Project1\SDL2.cpp(407,17): warning C4566: character represented by universal-character-name '\u1EC3' cannot be represented in the current code page (1252)
-C:\VClib\Project1\Project1\SDL2.cpp(407,17): warning C4566: character represented by universal-character-name '\u1EDF' cannot be represented in the current code page (1252)
-C:\VClib\Project1\Project1\SDL2.cpp(407,17): warning C4566: character represented by universal-character-name '\u0111' cannot be represented in the current code page (1252)
-C:\VClib\Project1\Project1\SDL2.cpp(444,17): warning C4566: character represented by universal-character-name '\u1EC3' cannot be represented in the current code page (1252)
-C:\VClib\Project1\Project1\SDL2.cpp(444,17): warning C4566: character represented by universal-character-name '\u1EDF' cannot be represented in the current code page (1252)
-C:\VClib\Project1\Project1\SDL2.cpp(565,15): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
+C:\VClib\Project1\Project1\SDL2.cpp(470,22): warning C4566: character represented by universal-character-name '\u01B0' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(470,22): warning C4566: character represented by universal-character-name '\u0111' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(470,22): warning C4566: character represented by universal-character-name '\u1EE3' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(483,22): warning C4566: character represented by universal-character-name '\u1ED7' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(483,22): warning C4566: character represented by universal-character-name '\u1EA1' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(493,22): warning C4566: character represented by universal-character-name '\u1ED7' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(493,22): warning C4566: character represented by universal-character-name '\u1EA1' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(541,17): warning C4566: character represented by universal-character-name '\u1EC3' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(541,17): warning C4566: character represented by universal-character-name '\u1EDF' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(541,17): warning C4566: character represented by universal-character-name '\u0111' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(597,17): warning C4566: character represented by universal-character-name '\u1EC3' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(597,17): warning C4566: character represented by universal-character-name '\u1EDF' cannot be represented in the current code page (1252)
+C:\VClib\Project1\Project1\SDL2.cpp(738,15): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
   Project1.vcxproj -> C:\VClib\Project1\x64\Debug\Project1.exe

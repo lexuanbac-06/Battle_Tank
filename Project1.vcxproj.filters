@@ -57,5 +57,14 @@
     <ClInclude Include="grass.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="supper_bullet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="heart.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="reWall.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

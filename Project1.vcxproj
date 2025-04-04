@@ -144,8 +144,11 @@
     <ClInclude Include="enemy.h" />
     <ClInclude Include="explosion.h" />
     <ClInclude Include="grass.h" />
+    <ClInclude Include="heart.h" />
     <ClInclude Include="init_veriable.h" />
     <ClInclude Include="lib_sdl.h" />
+    <ClInclude Include="reWall.h" />
+    <ClInclude Include="supper_bullet.h" />
     <ClInclude Include="tank.h" />
     <ClInclude Include="wall.h" />
     <ClInclude Include="wall2.h" />
